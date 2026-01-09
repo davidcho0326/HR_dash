@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { requestTeamComposition, TeamProposal, Employee as GeminiEmployee, Project as GeminiProject, WorkModule as GeminiWorkModule } from '../services/gemini';
 import {
   LayoutDashboard,
   Users,
@@ -279,7 +280,13 @@ const ConnectionLine = ({ from, to, color = "rgba(139, 92, 246, 0.3)" }) => {
   );
 };
 
-const DashboardView = () => {
+interface DashboardViewProps {
+  employees: typeof EMPLOYEES;
+  projects: typeof PROJECTS;
+  workModules: typeof WORK_MODULES;
+}
+
+const DashboardView = ({ employees, projects, workModules }: DashboardViewProps) => {
   const [viewMode, setViewMode] = useState('view'); // 'view' or 'edit'
   const [nodes, setNodes] = useState([]);
   const [draggingNodeId, setDraggingNodeId] = useState(null);
@@ -292,8 +299,8 @@ const DashboardView = () => {
 
   useEffect(() => {
     const initialNodes = [];
-    
-    PROJECTS.forEach((project, idx) => {
+
+    projects.forEach((project, idx) => {
       initialNodes.push({
         id: `project-${project.id}`,
         type: 'project',
@@ -303,7 +310,7 @@ const DashboardView = () => {
         connections: []
       });
       
-      const works = WORK_MODULES[project.id] || [];
+      const works = workModules[project.id] || [];
       works.forEach((work, workIdx) => {
         const workNode = {
           id: `work-${work.id}`,
@@ -315,9 +322,9 @@ const DashboardView = () => {
         };
         initialNodes.push(workNode);
       });
-      
+
       project.members.forEach((memberId, memIdx) => {
-        const employee = EMPLOYEES.find(e => e.id === memberId);
+        const employee = employees.find(e => e.id === memberId);
         if (employee) {
           const personNode = {
             id: `person-${employee.id}-proj-${project.id}`,
@@ -333,7 +340,7 @@ const DashboardView = () => {
     });
     
     setNodes(initialNodes);
-  }, []);
+  }, [projects, employees, workModules]);
 
   const handleMouseMove = (e) => {
     if (draggingNodeId && viewMode === 'edit') {
@@ -528,9 +535,110 @@ const DashboardView = () => {
   );
 };
 
-const ProjectView = () => {
-  const [showAiProposal, setShowAiProposal] = useState(true);
+interface ProjectViewProps {
+  employees: typeof EMPLOYEES;
+  projects: typeof PROJECTS;
+  workModules: typeof WORK_MODULES;
+  onAddProject: (project: typeof PROJECTS[0], workModules?: typeof WORK_MODULES[number]) => void;
+}
+
+const ProjectView = ({ employees, projects, workModules, onAddProject }: ProjectViewProps) => {
+  const [showAiProposal, setShowAiProposal] = useState(false);
   const [viewMode, setViewMode] = useState<'timeline' | 'gantt'>('timeline');
+
+  // AI Team Composition States
+  const [managerInput, setManagerInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [aiProposal, setAiProposal] = useState<TeamProposal | null>(null);
+
+  // 3개월 후 날짜 계산 함수
+  const calculateEndDate = () => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 3);
+    return date.toISOString().split('T')[0];
+  };
+
+  // 팀 구성 승인 핸들러
+  const handleApproveTeam = () => {
+    if (!aiProposal || aiProposal.error) return;
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const endDate = calculateEndDate();
+    const projectId = Date.now();
+
+    const newProject: typeof PROJECTS[0] = {
+      id: projectId,
+      name: aiProposal.projectName,
+      phase: "Planning",
+      progress: 0,
+      status: "OnTrack",
+      members: aiProposal.team.map(m => m.employeeId),
+      predictiveEnd: endDate.replace(/-/g, '.'),
+      contributionToOrg: 20,
+      startDate: todayStr,
+      endDate: endDate,
+      category: "AI Generated"
+    };
+
+    // AI가 추천한 workModules를 앱 형식으로 변환
+    const newWorkModules: typeof WORK_MODULES[number] = aiProposal.workModules?.map((module, idx) => {
+      // 각 모듈의 시작/종료일 계산 (순차적으로 배치)
+      const moduleStart = new Date(today);
+      moduleStart.setDate(moduleStart.getDate() + idx * 21); // 3주 간격
+      const moduleEnd = new Date(moduleStart);
+      moduleEnd.setDate(moduleEnd.getDate() + 28); // 4주 기간
+
+      return {
+        id: `w-${projectId}-${idx + 1}`,
+        name: module.name,
+        progress: 0,
+        techStack: module.techStack,
+        estimatedHours: module.estimatedHours,
+        startDate: moduleStart.toISOString().split('T')[0],
+        endDate: moduleEnd.toISOString().split('T')[0],
+        assignees: module.assigneeIds
+      };
+    }) || [];
+
+    onAddProject(newProject, newWorkModules);
+    setShowAiProposal(false);
+    setManagerInput('');
+    setAiProposal(null);
+  };
+
+  // API 호출 핸들러
+  const handleAiRequest = async () => {
+    if (!managerInput.trim()) return;
+
+    setIsLoading(true);
+    setShowAiProposal(false);
+
+    // employees와 projects를 Gemini API 형식으로 변환
+    const employeesForApi: GeminiEmployee[] = employees.map(emp => ({
+      id: emp.id,
+      name: emp.name,
+      role: emp.role,
+      skills: emp.skills,
+      load: emp.load,
+      status: emp.status
+    }));
+
+    const projectsForApi: GeminiProject[] = projects.map(proj => ({
+      id: proj.id,
+      name: proj.name,
+      category: proj.category,
+      members: proj.members.map(m => employees.find(e => e.id === m)?.name || ''),
+      startDate: proj.startDate,
+      endDate: proj.endDate
+    }));
+
+    const result = await requestTeamComposition(managerInput, employeesForApi, projectsForApi);
+
+    setAiProposal(result);
+    setShowAiProposal(true);
+    setIsLoading(false);
+  };
 
   // Gantt Chart States
   const [zoomLevel, setZoomLevel] = useState<'week' | 'month' | 'quarter'>('month');
@@ -628,7 +736,7 @@ const ProjectView = () => {
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-bold text-white">Project Timeline</h2>
             <span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded">
-              {PROJECTS.length} projects • {Object.values(WORK_MODULES).flat().length} modules
+              {projects.length} projects • {Object.values(workModules).flat().length} modules
             </span>
           </div>
 
@@ -720,7 +828,7 @@ const ProjectView = () => {
           /* Timeline View */
           <div className="flex-1 p-6 overflow-y-auto">
             <div className="space-y-6">
-              {PROJECTS.map(project => (
+              {projects.map(project => (
                 <div key={project.id}>
                   <div className="flex justify-between items-end mb-2">
                     <div>
@@ -777,7 +885,7 @@ const ProjectView = () => {
               <div className="flex min-h-full">
                 {/* Left Panel - Names */}
                 <div className="w-72 flex-shrink-0 bg-slate-900/50 border-r border-slate-700 flex flex-col">
-                  {PROJECTS.map(project => (
+                  {projects.map(project => (
                     <React.Fragment key={project.id}>
                       <div
                         className="flex items-center gap-2 px-4 py-3 border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer"
@@ -797,7 +905,7 @@ const ProjectView = () => {
                         </span>
                       </div>
 
-                      {expandedProjects.has(project.id) && WORK_MODULES[project.id]?.map(module => (
+                      {expandedProjects.has(project.id) && workModules[project.id]?.map(module => (
                         <React.Fragment key={module.id}>
                           <div
                             className="flex items-center gap-2 px-4 py-2.5 pl-8 border-b border-slate-800/50 hover:bg-slate-800/30 cursor-pointer"
@@ -814,7 +922,7 @@ const ProjectView = () => {
                           </div>
 
                           {expandedModules.has(module.id) && module.assignees?.map(assigneeId => {
-                            const employee = EMPLOYEES.find(e => e.id === assigneeId);
+                            const employee = employees.find(e => e.id === assigneeId);
                             if (!employee) return null;
                             return (
                               <div
@@ -863,7 +971,7 @@ const ProjectView = () => {
                   )}
 
                   {/* Bars */}
-                  {PROJECTS.map(project => {
+                  {projects.map(project => {
                     const projectBar = getBarPosition(project.startDate, project.endDate);
 
                     return (
@@ -907,7 +1015,7 @@ const ProjectView = () => {
                           </div>
                         </div>
 
-                        {expandedProjects.has(project.id) && WORK_MODULES[project.id]?.map(module => {
+                        {expandedProjects.has(project.id) && workModules[project.id]?.map(module => {
                           const moduleBar = getBarPosition(module.startDate, module.endDate);
 
                           return (
@@ -949,7 +1057,7 @@ const ProjectView = () => {
                               </div>
 
                               {expandedModules.has(module.id) && module.assignees?.map(assigneeId => {
-                                const employee = EMPLOYEES.find(e => e.id === assigneeId);
+                                const employee = employees.find(e => e.id === assigneeId);
                                 if (!employee) return null;
 
                                 return (
@@ -1003,15 +1111,31 @@ const ProjectView = () => {
           <textarea
             placeholder="예: '다음 달 런칭할 마케팅 캠페인 팀 구성해줘'"
             className="w-full bg-slate-900/80 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600 resize-none h-20"
+            value={managerInput}
+            onChange={(e) => setManagerInput(e.target.value)}
+            disabled={isLoading}
           />
-          <button className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
-            <ArrowRight size={14} />
-            AI 팀 구성 요청
+          <button
+            onClick={handleAiRequest}
+            disabled={isLoading || !managerInput.trim()}
+            className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                AI 분석 중...
+              </>
+            ) : (
+              <>
+                <ArrowRight size={14} />
+                AI 팀 구성 요청
+              </>
+            )}
           </button>
         </div>
 
         {/* AI Auto-Staffing Proposal */}
-        {showAiProposal && (
+        {showAiProposal && aiProposal && (
           <div className="flex-1 bg-slate-800 border border-indigo-500/50 rounded-xl p-4 overflow-y-auto relative">
             <div className="absolute top-2 right-2 opacity-5">
               <Cpu size={60} />
@@ -1023,39 +1147,69 @@ const ProjectView = () => {
                     <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"/>
                     AI Auto-Staffing
                   </h3>
-                  <p className="text-[11px] text-slate-400 mt-1">2026 비전 수립 프로젝트</p>
+                  <p className="text-[11px] text-slate-400 mt-1">{aiProposal.projectName}</p>
                 </div>
                 <button onClick={() => setShowAiProposal(false)} className="text-slate-500 hover:text-white text-sm">✕</button>
               </div>
 
-              {/* 팀 구성 카드 (1열 리스트) */}
-              <div className="space-y-2 mb-4">
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-indigo-500/30">
-                  <div className="text-[10px] text-indigo-400 mb-1">Recommended Leader</div>
-                  <div className="font-bold text-white text-sm">이영희 (PM)</div>
-                  <div className="text-[10px] text-slate-500 mt-1">유사 프로젝트 경험 3회</div>
+              {/* 에러 표시 */}
+              {aiProposal.error && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-red-400">{aiProposal.summary}</p>
                 </div>
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                  <div className="text-[10px] text-slate-400 mb-1">Member</div>
-                  <div className="font-bold text-slate-200 text-sm">김철수 (Dev)</div>
-                  <div className="text-[10px] text-slate-500 mt-1">가용성 85%</div>
+              )}
+
+              {/* 팀 구성 카드 (동적 렌더링) */}
+              {!aiProposal.error && aiProposal.team.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {aiProposal.team.map((member, idx) => (
+                    <div
+                      key={idx}
+                      className={`bg-slate-900/50 p-3 rounded-lg border ${
+                        member.role === 'Leader' ? 'border-indigo-500/30' : 'border-slate-700'
+                      }`}
+                    >
+                      <div className={`text-[10px] mb-1 ${
+                        member.role === 'Leader' ? 'text-indigo-400' : 'text-slate-400'
+                      }`}>
+                        {member.role === 'Leader' ? 'Recommended Leader' : 'Member'}
+                      </div>
+                      <div className={`font-bold text-sm ${
+                        member.role === 'Leader' ? 'text-white' : 'text-slate-200'
+                      }`}>
+                        {member.employeeName}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-1">{member.reason}</div>
+                    </div>
+                  ))}
                 </div>
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                  <div className="text-[10px] text-slate-400 mb-1">Member</div>
-                  <div className="font-bold text-slate-200 text-sm">최수민 (Des)</div>
-                  <div className="text-[10px] text-slate-500 mt-1">UI/UX 최적합</div>
+              )}
+
+              {/* AI 요약 */}
+              {!aiProposal.error && aiProposal.summary && (
+                <div className="bg-slate-900/30 rounded-lg p-3 mb-4 border border-slate-700/50">
+                  <div className="text-[10px] text-indigo-400 mb-1 flex items-center gap-1">
+                    <Zap size={10} />
+                    AI 분석 요약
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed">{aiProposal.summary}</p>
                 </div>
-              </div>
+              )}
 
               {/* 버튼들 */}
-              <div className="space-y-2">
-                <button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-medium transition-colors">
-                  팀 구성 승인
-                </button>
-                <button className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-lg text-xs font-medium transition-colors">
-                  수동 조정
-                </button>
-              </div>
+              {!aiProposal.error && (
+                <div className="space-y-2">
+                  <button
+                    onClick={handleApproveTeam}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-medium transition-colors"
+                  >
+                    팀 구성 승인
+                  </button>
+                  <button className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-lg text-xs font-medium transition-colors">
+                    수동 조정
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1064,11 +1218,16 @@ const ProjectView = () => {
   );
 };
 
-const AnalyticsView = () => {
+interface AnalyticsViewProps {
+  employees: typeof EMPLOYEES;
+  projects: typeof PROJECTS;
+}
+
+const AnalyticsView = ({ employees, projects }: AnalyticsViewProps) => {
   const [viewMode, setViewMode] = useState('project');
 
-  const ORG_PERFORMANCE = 78; 
-  
+  const ORG_PERFORMANCE = 78;
+
   const MEMBER_CONTRIBUTIONS = [
     { id: 1, name: "김철수", role: "Backend Lead", totalOrgImpact: 28, projects: [{ name: "AI 챗봇", val: 80 }, { name: "기타 유지보수", val: 20 }] },
     { id: 2, name: "이영희", role: "PM", totalOrgImpact: 22, projects: [{ name: "마케팅 대시보드", val: 90 }, { name: "기획 회의", val: 10 }] },
@@ -1153,7 +1312,7 @@ const AnalyticsView = () => {
                 <span className="text-xs text-slate-500">Org Goal &gt; Project Portion &gt; Member Contribution</span>
               </div>
 
-              {PROJECTS.map(project => (
+              {projects.map(project => (
                 <div key={project.id} className="bg-slate-800/50 rounded-xl border border-slate-700 p-5 hover:border-indigo-500/30 transition-all">
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -1177,7 +1336,7 @@ const AnalyticsView = () => {
                   </h5>
                   <div className="space-y-3 pl-4 border-l border-slate-700">
                     {project.members.map(memId => {
-                      const member = EMPLOYEES.find(e => e.id === memId);
+                      const member = employees.find(e => e.id === memId);
                       const contribution = memId === 1 ? 65 : memId === 2 ? 80 : 45; 
                       
                       return (
@@ -1262,12 +1421,16 @@ const AnalyticsView = () => {
   );
 };
 
-const TalentView = () => (
+interface TalentViewProps {
+  employees: typeof EMPLOYEES;
+}
+
+const TalentView = ({ employees }: TalentViewProps) => (
   <div className="grid grid-cols-2 gap-6 h-full">
     <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 overflow-y-auto">
       <h2 className="text-lg font-bold text-white mb-4">Live Personas</h2>
       <div className="space-y-4">
-        {EMPLOYEES.map(emp => (
+        {employees.map(emp => (
           <div key={emp.id} className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 hover:bg-slate-900 transition-colors">
             <div className="flex justify-between items-start mb-2">
               <div className="flex items-center gap-3">
@@ -1347,8 +1510,32 @@ const TalentView = () => (
   </div>
 );
 
+// 초기 데이터를 상수로 유지 (참조용)
+const INITIAL_EMPLOYEES = EMPLOYEES;
+const INITIAL_PROJECTS = PROJECTS;
+const INITIAL_WORK_MODULES = WORK_MODULES;
+
 const OrchestratorApp = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  // 동적 데이터 상태 관리
+  const [employees] = useState(INITIAL_EMPLOYEES);
+  const [projects, setProjects] = useState(INITIAL_PROJECTS);
+  const [workModules, setWorkModules] = useState(INITIAL_WORK_MODULES);
+
+  // 새 프로젝트 추가 함수 (workModules도 함께 추가)
+  const addProject = (
+    newProject: typeof INITIAL_PROJECTS[0],
+    newWorkModules?: typeof INITIAL_WORK_MODULES[number]
+  ) => {
+    setProjects(prev => [...prev, newProject]);
+    if (newWorkModules && newWorkModules.length > 0) {
+      setWorkModules(prev => ({
+        ...prev,
+        [newProject.id]: newWorkModules
+      }));
+    }
+  };
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
@@ -1426,10 +1613,30 @@ const OrchestratorApp = () => {
 
         <div className="flex-1 overflow-y-auto p-8">
            <div className="max-w-7xl mx-auto h-full">
-            {activeTab === "dashboard" && <DashboardView />}
-            {activeTab === "projects" && <ProjectView />}
-            {activeTab === "talent" && <TalentView />}
-            {activeTab === "analytics" && <AnalyticsView />}
+            {activeTab === "dashboard" && (
+              <DashboardView
+                employees={employees}
+                projects={projects}
+                workModules={workModules}
+              />
+            )}
+            {activeTab === "projects" && (
+              <ProjectView
+                employees={employees}
+                projects={projects}
+                workModules={workModules}
+                onAddProject={addProject}
+              />
+            )}
+            {activeTab === "talent" && (
+              <TalentView employees={employees} />
+            )}
+            {activeTab === "analytics" && (
+              <AnalyticsView
+                employees={employees}
+                projects={projects}
+              />
+            )}
            </div>
         </div>
       </main>
