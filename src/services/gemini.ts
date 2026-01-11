@@ -1,7 +1,8 @@
 // Gemini API Service for HR Dashboard
 // AI 팀 구성 추천 기능
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent';
+// gemini-2.0-flash가 안정적인 최신 모델입니다
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 // 타입 정의
 export interface Employee {
@@ -149,12 +150,13 @@ ${projects.map(p => `- ${p.name} (${p.category}): 멤버 ${p.members.length}명`
       };
     }
 
-    // JSON 파싱 (코드블록 제거)
+    // JSON 파싱 (더 강력한 추출 로직)
     let jsonStr = textResponse.trim();
+
+    // 코드블록 제거
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
-    }
-    if (jsonStr.startsWith('```')) {
+    } else if (jsonStr.startsWith('```')) {
       jsonStr = jsonStr.slice(3);
     }
     if (jsonStr.endsWith('```')) {
@@ -162,7 +164,33 @@ ${projects.map(p => `- ${p.name} (${p.category}): 멤버 ${p.members.length}명`
     }
     jsonStr = jsonStr.trim();
 
-    const proposal: TeamProposal = JSON.parse(jsonStr);
+    // JSON 객체 부분만 추출 (정규식으로 { } 사이 내용 찾기)
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('JSON not found in response:', textResponse);
+      return {
+        projectName: '오류',
+        team: [],
+        workModules: [],
+        summary: 'AI 응답에서 JSON을 찾을 수 없습니다.',
+        error: 'JSON_NOT_FOUND'
+      };
+    }
+    jsonStr = jsonMatch[0];
+
+    let proposal: TeamProposal;
+    try {
+      proposal = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError, '\nJSON String:', jsonStr);
+      return {
+        projectName: '오류',
+        team: [],
+        workModules: [],
+        summary: `JSON 파싱 오류: ${parseError instanceof Error ? parseError.message : '알 수 없는 오류'}`,
+        error: 'JSON_PARSE_ERROR'
+      };
+    }
 
     // workModules가 없으면 빈 배열로 초기화
     if (!proposal.workModules) {

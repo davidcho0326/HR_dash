@@ -36,7 +36,13 @@ import {
   ChevronDown,
   ChevronRight,
   Calendar,
-  User
+  User,
+  Mic,
+  Play,
+  Pause,
+  SkipForward,
+  RotateCcw,
+  Volume2
 } from 'lucide-react';
 
 // --- Mock Data ---
@@ -280,6 +286,169 @@ const ConnectionLine = ({ from, to, color = "rgba(139, 92, 246, 0.3)" }) => {
   );
 };
 
+// Summary Card Component
+const SummaryCard = ({ title, value, icon, color, subtitle }: {
+  title: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color: 'indigo' | 'amber' | 'emerald' | 'blue' | 'red';
+  subtitle?: string;
+}) => {
+  const colorClasses = {
+    indigo: 'from-indigo-600 to-indigo-700 shadow-indigo-500/20',
+    amber: 'from-amber-600 to-amber-700 shadow-amber-500/20',
+    emerald: 'from-emerald-600 to-emerald-700 shadow-emerald-500/20',
+    blue: 'from-blue-600 to-blue-700 shadow-blue-500/20',
+    red: 'from-red-600 to-red-700 shadow-red-500/20',
+  };
+
+  return (
+    <div className={`bg-gradient-to-br ${colorClasses[color]} rounded-xl p-4 shadow-lg`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-white/80 text-sm font-medium">{title}</span>
+        <div className="text-white/60">{icon}</div>
+      </div>
+      <div className="text-3xl font-bold text-white">{value}</div>
+      {subtitle && <div className="text-xs text-white/60 mt-1">{subtitle}</div>}
+    </div>
+  );
+};
+
+// Employee Card for Dashboard
+const EmployeeStatusCard = ({ employee }: { employee: typeof EMPLOYEES[0] }) => {
+  const statusColors = {
+    "Focusing": "bg-emerald-500",
+    "Meeting": "bg-amber-500",
+    "Working": "bg-blue-500",
+    "Idle": "bg-slate-500",
+    "Away": "bg-red-500",
+  };
+
+  const loadColor = employee.load > 80 ? 'bg-red-500' : employee.load > 60 ? 'bg-amber-500' : 'bg-emerald-500';
+
+  return (
+    <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700 hover:border-slate-600 transition-all">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-sm font-bold text-white">
+          {employee.avatar}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h4 className="text-white font-medium truncate">{employee.name}</h4>
+            <span className={`w-2 h-2 rounded-full ${statusColors[employee.status]}`}></span>
+          </div>
+          <p className="text-xs text-slate-400 truncate">{employee.role}</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex justify-between text-xs">
+          <span className="text-slate-400">업무 부하</span>
+          <span className={`font-medium ${employee.load > 80 ? 'text-red-400' : 'text-slate-300'}`}>
+            {employee.load}%
+            {employee.risk === "High" && " ⚠️"}
+          </span>
+        </div>
+        <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+          <div className={`h-full ${loadColor} transition-all`} style={{ width: `${employee.load}%` }}></div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1 mt-3">
+        {employee.skills.slice(0, 3).map((skill, idx) => (
+          <span key={idx} className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">
+            {skill}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Project Card for Dashboard
+const ProjectStatusCard = ({ project, employees, isNew }: {
+  project: typeof PROJECTS[0];
+  employees: typeof EMPLOYEES;
+  isNew?: boolean;
+}) => {
+  const phaseColors = {
+    "Planning": "bg-slate-600 text-slate-200",
+    "Design": "bg-purple-600 text-purple-100",
+    "Development": "bg-blue-600 text-blue-100",
+  };
+
+  const memberData = project.members.map(id => employees.find(e => e.id === id)).filter(Boolean);
+
+  return (
+    <div className={`bg-slate-900/50 rounded-xl p-4 border transition-all ${
+      isNew
+        ? 'border-indigo-500/50 bg-indigo-900/20'
+        : 'border-slate-700 hover:border-slate-600'
+    }`}>
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            {isNew && (
+              <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full font-medium animate-pulse">
+                NEW
+              </span>
+            )}
+            <h4 className="text-white font-medium">{project.name}</h4>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] px-2 py-0.5 rounded ${phaseColors[project.phase] || 'bg-slate-600 text-slate-200'}`}>
+              {project.phase}
+            </span>
+            <span className={`text-[10px] px-2 py-0.5 rounded ${
+              project.status === 'OnTrack'
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+            }`}>
+              {project.status === 'OnTrack' ? '정상 진행' : '지연'}
+            </span>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-white">{project.progress}%</div>
+          <div className="text-[10px] text-slate-500">진척률</div>
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all ${project.status === 'OnTrack' ? 'bg-indigo-500' : 'bg-amber-500'}`}
+            style={{ width: `${project.progress}%` }}
+          ></div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <div className="flex -space-x-2">
+            {memberData.slice(0, 3).map((emp, idx) => (
+              <div
+                key={idx}
+                className="w-6 h-6 rounded-full bg-slate-700 border-2 border-slate-900 flex items-center justify-center text-[10px] font-medium text-white"
+                title={emp?.name}
+              >
+                {emp?.avatar}
+              </div>
+            ))}
+          </div>
+          {memberData.length > 3 && (
+            <span className="text-xs text-slate-500 ml-1">+{memberData.length - 3}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <Calendar size={12} />
+          <span>{project.predictiveEnd}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface DashboardViewProps {
   employees: typeof EMPLOYEES;
   projects: typeof PROJECTS;
@@ -287,250 +456,138 @@ interface DashboardViewProps {
 }
 
 const DashboardView = ({ employees, projects, workModules }: DashboardViewProps) => {
-  const [viewMode, setViewMode] = useState('view'); // 'view' or 'edit'
-  const [nodes, setNodes] = useState([]);
-  const [draggingNodeId, setDraggingNodeId] = useState(null);
-  const [zoom, setZoom] = useState(1);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const canvasRef = useRef(null);
-  const contentRef = useRef(null);
+  // 통계 계산
+  const totalProjects = projects.length;
+  const inProgressProjects = projects.filter(p => p.progress < 100).length;
+  const availableEmployees = employees.filter(e => e.load < 80 && e.status !== 'Away').length;
+  const avgProgress = projects.length > 0
+    ? Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / projects.length)
+    : 0;
+  const highRiskEmployees = employees.filter(e => e.risk === 'High').length;
 
-  useEffect(() => {
-    const initialNodes = [];
-
-    projects.forEach((project, idx) => {
-      initialNodes.push({
-        id: `project-${project.id}`,
-        type: 'project',
-        x: 150 + idx * 500,
-        y: 80,
-        data: project,
-        connections: []
-      });
-      
-      const works = workModules[project.id] || [];
-      works.forEach((work, workIdx) => {
-        const workNode = {
-          id: `work-${work.id}`,
-          type: 'work',
-          x: 80 + idx * 500 + workIdx * 140,
-          y: 280,
-          data: work,
-          parentId: `project-${project.id}`
-        };
-        initialNodes.push(workNode);
-      });
-
-      project.members.forEach((memberId, memIdx) => {
-        const employee = employees.find(e => e.id === memberId);
-        if (employee) {
-          const personNode = {
-            id: `person-${employee.id}-proj-${project.id}`,
-            type: 'person',
-            x: 150 + idx * 500 + memIdx * 200,
-            y: 520,
-            data: employee,
-            parentId: `project-${project.id}`
-          };
-          initialNodes.push(personNode);
-        }
-      });
-    });
-    
-    setNodes(initialNodes);
-  }, [projects, employees, workModules]);
-
-  const handleMouseMove = (e) => {
-    if (draggingNodeId && viewMode === 'edit') {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      
-      setNodes(prev => prev.map(node => 
-        node.id === draggingNodeId 
-          ? { ...node, x: x - 100, y: y - 50 }
-          : node
-      ));
-    }
-  };
-
-  const handleMouseUp = () => {
-    setDraggingNodeId(null);
-  };
-
-  const getNodeCenter = (node) => {
-    const widthMap = { project: 256, work: 224, person: 192 };
-    const width = widthMap[node.type] || 192;
-    const height = 140;
-    return {
-      x: node.x + width / 2,
-      y: node.y + height / 2
-    };
-  };
-
-  const renderConnections = () => {
-    const connections = [];
-    
-    nodes.forEach(node => {
-      if (node.parentId) {
-        const parent = nodes.find(n => n.id === node.parentId);
-        if (parent) {
-          const fromCenter = getNodeCenter(parent);
-          const toCenter = getNodeCenter(node);
-          
-          let color = "rgba(139, 92, 246, 0.3)";
-          if (node.type === 'person') color = "rgba(16, 185, 129, 0.3)";
-          if (node.type === 'work') color = "rgba(245, 158, 11, 0.3)";
-          
-          connections.push(
-            <ConnectionLine
-              key={`${parent.id}-${node.id}`}
-              from={fromCenter}
-              to={toCenter}
-              color={color}
-            />
-          );
-        }
-      }
-    });
-    
-    return connections;
-  };
-
-  const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 0.1, 2));
-  };
-
-  const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev - 0.1, 0.5));
-  };
-
-  const handlePanStart = (e) => {
-    if (e.button !== 0) return;
-    setIsPanning(true);
-    setPanStart({ x: e.clientX, y: e.clientY });
-  };
-
-  const handlePanMove = (e) => {
-    if (!isPanning) return;
-    const dx = e.clientX - panStart.x;
-    const dy = e.clientY - panStart.y;
-    setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
-    setPanStart({ x: e.clientX, y: e.clientY });
-  };
-
-  const handlePanEnd = () => {
-    setIsPanning(false);
-  };
+  // 신규 프로젝트 감지 (오늘 날짜와 같은 startDate)
+  const today = new Date().toISOString().split('T')[0];
+  const recentProjects = projects.filter(p => p.startDate === today);
 
   return (
-    <div className="h-full flex flex-col space-y-4">
-      {/* Control Bar */}
-      <div className="flex justify-between items-center bg-slate-800 rounded-xl p-4 border border-slate-700">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Link2 className="text-indigo-400" size={20} />
-            <h2 className="text-lg font-bold text-white">Project Hierarchy Canvas</h2>
+    <div className="h-full flex flex-col space-y-6 overflow-y-auto">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+            <LayoutDashboard className="text-indigo-400" />
+            HR Dashboard
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">인력 및 프로젝트 현황 모니터링</p>
+        </div>
+        <div className="text-xs text-slate-500 bg-slate-800 px-3 py-2 rounded-lg border border-slate-700">
+          마지막 업데이트: {new Date().toLocaleTimeString('ko-KR')}
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <SummaryCard
+          title="총 프로젝트"
+          value={totalProjects}
+          icon={<Briefcase size={20} />}
+          color="indigo"
+          subtitle={`${recentProjects.length}개 신규`}
+        />
+        <SummaryCard
+          title="진행 중"
+          value={inProgressProjects}
+          icon={<Clock size={20} />}
+          color="amber"
+          subtitle="활성 프로젝트"
+        />
+        <SummaryCard
+          title="가용 인력"
+          value={`${availableEmployees}/${employees.length}`}
+          icon={<Users size={20} />}
+          color="emerald"
+          subtitle={highRiskEmployees > 0 ? `${highRiskEmployees}명 번아웃 위험` : '정상'}
+        />
+        <SummaryCard
+          title="평균 진척률"
+          value={`${avgProgress}%`}
+          icon={<TrendingUp size={20} />}
+          color="blue"
+        />
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
+        {/* 인력 가용 현황 */}
+        <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Users className="text-emerald-400" size={20} />
+              인력 가용 현황
+            </h2>
+            <span className="text-xs text-slate-500">{employees.length}명</span>
           </div>
-          <span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded">
-            {nodes.length} nodes • Figma Jam Style
-          </span>
+
+          <div className="grid grid-cols-2 gap-3 overflow-y-auto flex-1 pr-1">
+            {employees.map(emp => (
+              <EmployeeStatusCard key={emp.id} employee={emp} />
+            ))}
+          </div>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setViewMode(viewMode === 'view' ? 'edit' : 'view')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              viewMode === 'edit' 
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          >
-            {viewMode === 'edit' ? <Edit3 size={16} /> : <Eye size={16} />}
-            {viewMode === 'edit' ? 'Edit Mode' : 'View Mode'}
-          </button>
-          
-          <div className="h-6 w-px bg-slate-700"></div>
-          
-          <div className="flex items-center gap-2 text-xs">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-sm"></div>
-              <span className="text-slate-400">Projects</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-gradient-to-br from-amber-600 to-orange-600 rounded-sm"></div>
-              <span className="text-slate-400">Work Modules</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-sm"></div>
-              <span className="text-slate-400">People</span>
-            </div>
+
+        {/* 프로젝트 진척률 */}
+        <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Briefcase className="text-indigo-400" size={20} />
+              프로젝트 진척률
+            </h2>
+            <span className="text-xs text-slate-500">{projects.length}개 프로젝트</span>
+          </div>
+
+          <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+            {/* 신규 프로젝트 우선 표시 */}
+            {recentProjects.map(project => (
+              <ProjectStatusCard
+                key={project.id}
+                project={project}
+                employees={employees}
+                isNew={true}
+              />
+            ))}
+
+            {/* 기존 프로젝트 */}
+            {projects
+              .filter(p => p.startDate !== today)
+              .sort((a, b) => b.progress - a.progress)
+              .map(project => (
+                <ProjectStatusCard
+                  key={project.id}
+                  project={project}
+                  employees={employees}
+                />
+              ))
+            }
           </div>
         </div>
       </div>
 
-      {/* Canvas */}
-      <div 
-        ref={canvasRef}
-        className="flex-1 bg-slate-900 rounded-xl border border-slate-700 relative overflow-hidden"
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        style={{ 
-          backgroundImage: 'radial-gradient(circle, rgba(100, 116, 139, 0.1) 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
-          cursor: viewMode === 'edit' ? 'grab' : 'default'
-        }}
-      >
-        {/* Grid pattern overlay */}
-        <div className="absolute inset-0 pointer-events-none opacity-20">
-          <svg width="100%" height="100%">
-            <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(148, 163, 184, 0.1)" strokeWidth="1"/>
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
+      {/* 신규 프로젝트 알림 배너 (있을 경우에만) */}
+      {recentProjects.length > 0 && (
+        <div className="bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-600 rounded-lg">
+              <Plus size={20} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-white font-medium">새로운 프로젝트가 추가되었습니다!</h3>
+              <p className="text-sm text-indigo-300">
+                {recentProjects.map(p => p.name).join(', ')} - Projects 탭에서 AI 팀 구성이 승인되었습니다.
+              </p>
+            </div>
+          </div>
         </div>
-
-        {/* Connection Lines */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-          {renderConnections()}
-        </svg>
-
-        {/* Nodes */}
-        {nodes.map(node => (
-          <DraggableNode
-            key={node.id}
-            node={node}
-            isDragging={draggingNodeId === node.id}
-            onDragStart={(id) => viewMode === 'edit' && setDraggingNodeId(id)}
-          />
-        ))}
-      </div>
-
-      {/* Zoom and Pan Controls */}
-      <div className="absolute top-4 right-4 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-lg p-3 text-xs text-slate-400 flex items-center gap-2">
-        <ZoomIn size={14} className="text-indigo-400 cursor-pointer" onClick={handleZoomIn} />
-        <ZoomOut size={14} className="text-indigo-400 cursor-pointer" onClick={handleZoomOut} />
-        <div className="h-4 w-[1px] bg-slate-700"></div>
-        <Maximize2 size={14} className="text-indigo-400 cursor-pointer" onClick={() => setPanOffset({ x: 0, y: 0 })} />
-      </div>
-
-      {/* Pan Area */}
-      <div
-        ref={contentRef}
-        className="absolute inset-0 pointer-events-none"
-        onMouseDown={handlePanStart}
-        onMouseMove={handlePanMove}
-        onMouseUp={handlePanEnd}
-        onMouseLeave={handlePanEnd}
-      ></div>
+      )}
     </div>
   );
 };
@@ -1421,6 +1478,586 @@ const AnalyticsView = ({ employees, projects }: AnalyticsViewProps) => {
   );
 };
 
+// --- Simulation View ---
+
+interface SimulationViewProps {
+  employees: typeof EMPLOYEES;
+  projects: typeof PROJECTS;
+}
+
+// Step 1: 음성 녹음 씬
+const VoiceRecordingScene = ({ isActive }: { isActive: boolean }) => {
+  const [phase, setPhase] = useState(0);
+  const [typedText, setTypedText] = useState('');
+  const fullText = "마케팅 캠페인 분석 시스템을 만들어주세요. 3개월 내 완료 희망합니다.";
+
+  useEffect(() => {
+    if (!isActive) {
+      setPhase(0);
+      setTypedText('');
+      return;
+    }
+    const timer1 = setTimeout(() => setPhase(1), 500);
+    const timer2 = setTimeout(() => setPhase(2), 2000);
+    const timer3 = setTimeout(() => setPhase(3), 4000);
+    return () => { clearTimeout(timer1); clearTimeout(timer2); clearTimeout(timer3); };
+  }, [isActive]);
+
+  useEffect(() => {
+    if (phase === 2 && typedText.length < fullText.length) {
+      const timer = setTimeout(() => {
+        setTypedText(fullText.slice(0, typedText.length + 1));
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, typedText, fullText]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-8">
+      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+        <Mic className="text-red-400" /> 음성 녹음 시스템
+      </h2>
+
+      <div className="flex items-center gap-12">
+        {/* 녹음 영역 */}
+        <div className={`w-48 h-48 rounded-full border-4 flex flex-col items-center justify-center transition-all duration-500 ${
+          phase >= 1 ? 'border-red-500 bg-red-500/10' : 'border-slate-600 bg-slate-800'
+        }`}>
+          <Mic size={48} className={phase >= 1 ? 'text-red-400 animate-pulse' : 'text-slate-500'} />
+          {phase >= 1 && phase < 2 && (
+            <div className="flex gap-1 mt-4">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="w-1 bg-red-400 rounded-full animate-pulse"
+                  style={{
+                    height: `${20 + Math.random() * 20}px`,
+                    animationDelay: `${i * 0.1}s`
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          {phase >= 2 && <span className="text-xs text-emerald-400 mt-2">변환 완료</span>}
+        </div>
+
+        {/* 화살표 */}
+        <ArrowRight size={32} className={`transition-all duration-500 ${phase >= 2 ? 'text-indigo-400' : 'text-slate-600'}`} />
+
+        {/* 텍스트 변환 결과 */}
+        <div className={`w-80 p-6 rounded-xl border transition-all duration-500 ${
+          phase >= 2 ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-800'
+        }`}>
+          <div className="flex items-center gap-2 mb-3">
+            <MessageSquare size={16} className="text-indigo-400" />
+            <span className="text-sm text-slate-400">음성 → 텍스트</span>
+          </div>
+          <p className="text-white min-h-[60px]">
+            {phase >= 2 ? typedText : ''}
+            {phase === 2 && typedText.length < fullText.length && <span className="animate-pulse">|</span>}
+          </p>
+        </div>
+      </div>
+
+      {/* 프로젝트 생성 카드 */}
+      {phase >= 3 && (
+        <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl animate-pulse">
+          <div className="flex items-center gap-3">
+            <CheckCircle className="text-emerald-400" />
+            <span className="text-emerald-300">프로젝트 자동 생성 완료: "마케팅 캠페인 분석 시스템"</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Step 2: 발주 승인 씬
+const ApprovalScene = ({ isActive }: { isActive: boolean }) => {
+  const [approved, setApproved] = useState(false);
+
+  useEffect(() => {
+    if (!isActive) { setApproved(false); return; }
+    const timer = setTimeout(() => setApproved(true), 3000);
+    return () => clearTimeout(timer);
+  }, [isActive]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-6">
+      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+        <CheckCircle className="text-emerald-400" /> 프로젝트 발주 승인
+      </h2>
+
+      <div className={`w-[500px] p-6 rounded-xl border transition-all duration-500 ${
+        approved ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-600 bg-slate-800'
+      }`}>
+        <h3 className="text-xl font-bold text-white mb-4">마케팅 캠페인 분석 시스템</h3>
+
+        <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+          <div><span className="text-slate-400">예상 기간:</span> <span className="text-white">3개월</span></div>
+          <div><span className="text-slate-400">필요 인력:</span> <span className="text-white">4명</span></div>
+          <div><span className="text-slate-400">예상 비용:</span> <span className="text-white">₩45,000,000</span></div>
+          <div><span className="text-slate-400">카테고리:</span> <span className="text-white">Marketing</span></div>
+        </div>
+
+        <div className="mb-6">
+          <div className="text-sm text-slate-400 mb-2">추천 팀:</div>
+          <div className="flex gap-2">
+            {['김철수 (Lead)', '박지성', '최수민', '이영희'].map((name, i) => (
+              <div key={i} className="px-3 py-1 bg-slate-700 rounded-full text-xs text-white">
+                {name}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-4">
+          <button className="flex-1 py-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600">
+            거절
+          </button>
+          <button className={`flex-1 py-2 rounded-lg transition-all ${
+            approved
+              ? 'bg-emerald-600 text-white'
+              : 'bg-indigo-600 text-white hover:bg-indigo-500'
+          }`}>
+            {approved ? '✓ 승인됨' : '승인'}
+          </button>
+        </div>
+      </div>
+
+      {approved && (
+        <div className="text-emerald-400 animate-pulse flex items-center gap-2">
+          <CheckCircle size={20} />
+          프로젝트가 승인되었습니다!
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Step 3: 대시보드 업데이트 씬
+const DashboardUpdateScene = ({ isActive }: { isActive: boolean }) => {
+  const [projectCount, setProjectCount] = useState(2);
+  const [loads, setLoads] = useState({ kim: 85, park: 30 });
+
+  useEffect(() => {
+    if (!isActive) { setProjectCount(2); setLoads({ kim: 85, park: 30 }); return; }
+    const timer1 = setTimeout(() => setProjectCount(3), 1000);
+    const timer2 = setTimeout(() => setLoads({ kim: 100, park: 45 }), 1500);
+    return () => { clearTimeout(timer1); clearTimeout(timer2); };
+  }, [isActive]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-6">
+      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+        <LayoutDashboard className="text-indigo-400" /> 대시보드 실시간 업데이트
+      </h2>
+
+      <div className="grid grid-cols-2 gap-6 w-[600px]">
+        {/* 프로젝트 수 */}
+        <div className="p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <div className="text-sm text-slate-400 mb-2">총 프로젝트</div>
+          <div className="text-4xl font-bold text-white flex items-center gap-2">
+            {projectCount}
+            {projectCount > 2 && <TrendingUp className="text-emerald-400" size={24} />}
+          </div>
+        </div>
+
+        {/* 신규 프로젝트 알림 */}
+        {projectCount > 2 && (
+          <div className="p-4 bg-indigo-500/10 rounded-xl border border-indigo-500/30 animate-pulse">
+            <div className="flex items-center gap-2 mb-2">
+              <Plus className="text-indigo-400" size={16} />
+              <span className="text-xs text-indigo-400">NEW</span>
+            </div>
+            <div className="text-white font-medium">마케팅 캠페인 분석</div>
+          </div>
+        )}
+
+        {/* 김철수 부하율 */}
+        <div className="p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <div className="flex justify-between mb-2">
+            <span className="text-sm text-white">김철수</span>
+            <span className={`text-sm ${loads.kim >= 100 ? 'text-red-400' : 'text-slate-400'}`}>
+              {loads.kim}% {loads.kim >= 100 && '⚠️'}
+            </span>
+          </div>
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all duration-1000 ${loads.kim >= 100 ? 'bg-red-500' : 'bg-amber-500'}`}
+              style={{ width: `${loads.kim}%` }}
+            />
+          </div>
+        </div>
+
+        {/* 박지성 부하율 */}
+        <div className="p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <div className="flex justify-between mb-2">
+            <span className="text-sm text-white">박지성</span>
+            <span className="text-sm text-slate-400">{loads.park}%</span>
+          </div>
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 transition-all duration-1000"
+              style={{ width: `${loads.park}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Step 4: 챗봇 알람 씬
+const ChatbotAlertScene = ({ isActive }: { isActive: boolean }) => {
+  const [visibleMessages, setVisibleMessages] = useState(0);
+
+  const messages = [
+    { time: '10:32', type: 'info', text: '📢 [마케팅 캠페인 분석] 프로젝트 시작!\n담당: 김철수, 박지성, 최수민, 이영희' },
+    { time: '15:45', type: 'warning', text: '⚠️ 유관 업체 답변 딜레이 1일째\n@김철수 확인 부탁드립니다.' },
+    { time: '09:00', type: 'success', text: '✅ 1단계 완료! 다음 단계: UI 디자인\n예상 소요: 2주' },
+  ];
+
+  useEffect(() => {
+    if (!isActive) { setVisibleMessages(0); return; }
+    const timers = messages.map((_, i) =>
+      setTimeout(() => setVisibleMessages(i + 1), (i + 1) * 1500)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [isActive]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-6">
+      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+        <MessageSquare className="text-blue-400" /> Teams/Notion 자동 알림
+      </h2>
+
+      <div className="w-[500px] space-y-4">
+        {messages.slice(0, visibleMessages).map((msg, i) => (
+          <div
+            key={i}
+            className={`p-4 rounded-xl border transition-all duration-300 ${
+              msg.type === 'warning' ? 'border-amber-500/30 bg-amber-500/10' :
+              msg.type === 'success' ? 'border-emerald-500/30 bg-emerald-500/10' :
+              'border-slate-600 bg-slate-800'
+            }`}
+            style={{ animation: 'slideIn 0.3s ease-out' }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center">
+                <Cpu size={12} className="text-white" />
+              </div>
+              <span className="text-sm font-medium text-indigo-400">HR Bot</span>
+              <span className="text-xs text-slate-500 ml-auto">{msg.time}</span>
+            </div>
+            <p className="text-white whitespace-pre-line text-sm">{msg.text}</p>
+          </div>
+        ))}
+
+        {visibleMessages < messages.length && (
+          <div className="flex items-center gap-2 text-slate-500 text-sm">
+            <div className="flex gap-1">
+              <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            타이핑 중...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Step 5: 인력 수급 씬
+const TalentAcquisitionScene = ({ isActive }: { isActive: boolean }) => {
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    if (!isActive) { setPhase(0); return; }
+    const timers = [
+      setTimeout(() => setPhase(1), 500),
+      setTimeout(() => setPhase(2), 1500),
+      setTimeout(() => setPhase(3), 2500),
+      setTimeout(() => setPhase(4), 3500),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [isActive]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-6">
+      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+        <UserPlus className="text-purple-400" /> 자동 인력 수급 시스템
+      </h2>
+
+      <div className="text-amber-400 mb-4">
+        ⚠️ 부족 감지: "데이터 엔지니어"
+      </div>
+
+      <div className="flex flex-col items-center gap-4 w-[500px]">
+        {/* 사내 검색 */}
+        <div className="flex items-center gap-4 w-full">
+          <div className={`flex-1 p-4 rounded-xl border text-center transition-all ${
+            phase >= 1 ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-800'
+          }`}>
+            <Users size={24} className="mx-auto mb-2 text-indigo-400" />
+            <div className="text-white">사내 검색</div>
+            {phase === 1 && <div className="text-xs text-slate-400 mt-1">검색 중...</div>}
+          </div>
+          <ArrowRight className={phase >= 2 ? 'text-indigo-400' : 'text-slate-600'} />
+          <div className={`flex-1 p-4 rounded-xl border text-center transition-all ${
+            phase >= 2 ? 'border-red-500 bg-red-500/10' : 'border-slate-700 bg-slate-800'
+          }`}>
+            <AlertTriangle size={24} className={`mx-auto mb-2 ${phase >= 2 ? 'text-red-400' : 'text-slate-500'}`} />
+            <div className={phase >= 2 ? 'text-red-400' : 'text-slate-500'}>매칭 없음</div>
+          </div>
+        </div>
+
+        {/* 용역 검색 */}
+        {phase >= 2 && (
+          <div className="flex items-center gap-4 w-full">
+            <div className={`flex-1 p-4 rounded-xl border text-center transition-all ${
+              phase >= 3 ? 'border-purple-500 bg-purple-500/10' : 'border-slate-700 bg-slate-800'
+            }`}>
+              <Database size={24} className="mx-auto mb-2 text-purple-400" />
+              <div className="text-white">용역 업체 연동</div>
+              {phase === 2 && <div className="text-xs text-slate-400 mt-1">검색 중...</div>}
+            </div>
+            <ArrowRight className={phase >= 3 ? 'text-purple-400' : 'text-slate-600'} />
+            <div className={`flex-1 p-4 rounded-xl border text-center transition-all ${
+              phase >= 3 ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-800'
+            }`}>
+              <CheckCircle size={24} className={`mx-auto mb-2 ${phase >= 3 ? 'text-emerald-400' : 'text-slate-500'}`} />
+              <div className={phase >= 3 ? 'text-emerald-400' : 'text-slate-500'}>후보 3명 발견!</div>
+            </div>
+          </div>
+        )}
+
+        {/* 배정 완료 */}
+        {phase >= 4 && (
+          <div className="w-full p-4 rounded-xl border border-emerald-500 bg-emerald-500/10 mt-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">
+                HG
+              </div>
+              <div>
+                <div className="text-white font-medium">홍길동 (용역)</div>
+                <div className="text-xs text-slate-400">Python, Airflow, BigQuery</div>
+              </div>
+              <div className="ml-auto text-emerald-400">배정 완료 ✓</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Step 6: 성과 평가 씬
+const PerformanceEvalScene = ({ isActive }: { isActive: boolean }) => {
+  const [progress, setProgress] = useState(0);
+
+  const performanceData = [
+    { name: '김철수', contribution: 80, color: 'bg-indigo-500' },
+    { name: '박지성', contribution: 70, color: 'bg-purple-500' },
+    { name: '최수민', contribution: 60, color: 'bg-pink-500' },
+    { name: '이영희', contribution: 90, color: 'bg-emerald-500' },
+  ];
+
+  useEffect(() => {
+    if (!isActive) { setProgress(0); return; }
+    const timer = setTimeout(() => setProgress(100), 500);
+    return () => clearTimeout(timer);
+  }, [isActive]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-6">
+      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+        <BarChart2 className="text-emerald-400" /> 자동 성과 평가
+      </h2>
+
+      <div className="text-slate-400">
+        프로젝트: 마케팅 캠페인 분석 (진행률 75%)
+      </div>
+
+      <div className="w-[500px] p-6 rounded-xl border border-slate-700 bg-slate-800">
+        <div className="text-sm text-slate-400 mb-4">개인별 기여도</div>
+
+        <div className="space-y-4">
+          {performanceData.map((person, i) => (
+            <div key={i}>
+              <div className="flex justify-between mb-1">
+                <span className="text-white">{person.name}</span>
+                <span className="text-slate-400">{progress > 0 ? person.contribution : 0}%</span>
+              </div>
+              <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${person.color} transition-all duration-1000`}
+                  style={{
+                    width: progress > 0 ? `${person.contribution}%` : '0%',
+                    transitionDelay: `${i * 200}ms`
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {progress > 0 && (
+        <div className="flex gap-4 mt-4">
+          <div className="px-4 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+            🏆 MVP: 이영희 (90%)
+          </div>
+          <div className="px-4 py-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400">
+            ⚡ 평균 기여도: 75%
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// 메인 SimulationView 컴포넌트
+const SimulationView = ({ employees, projects }: SimulationViewProps) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const steps = [
+    { id: 1, name: "음성 녹음", icon: Mic, description: "F&F 포털/노션에서 음성으로 프로젝트 요청" },
+    { id: 2, name: "발주 승인", icon: CheckCircle, description: "관리자가 프로젝트 내용 확인 후 승인" },
+    { id: 3, name: "대시보드 업데이트", icon: LayoutDashboard, description: "프로젝트/인력 현황 실시간 반영" },
+    { id: 4, name: "챗봇 알람", icon: MessageSquare, description: "Teams/Notion으로 자동 알림 전송" },
+    { id: 5, name: "인력 수급", icon: UserPlus, description: "부족 인력 자동 검색 및 배정" },
+    { id: 6, name: "성과 평가", icon: BarChart2, description: "프로젝트 완료 시 자동 평가" },
+  ];
+
+  useEffect(() => {
+    if (isPlaying && currentStep < 6) {
+      const timer = setTimeout(() => {
+        setCurrentStep(prev => prev + 1);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+    if (currentStep >= 6) {
+      setIsPlaying(false);
+    }
+  }, [isPlaying, currentStep]);
+
+  const handleStart = () => {
+    if (currentStep === 0) setCurrentStep(1);
+    setIsPlaying(true);
+  };
+
+  const handlePause = () => setIsPlaying(false);
+
+  const handleNext = () => {
+    if (currentStep < 6) setCurrentStep(prev => prev + 1);
+  };
+
+  const handleReset = () => {
+    setCurrentStep(0);
+    setIsPlaying(false);
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+            <Zap className="text-amber-400" />
+            시스템 시뮬레이션
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">HR 오케스트레이션 시스템 데모</p>
+        </div>
+
+        {/* 컨트롤 패널 */}
+        <div className="flex items-center gap-3">
+          {!isPlaying ? (
+            <button
+              onClick={handleStart}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
+            >
+              <Play size={18} /> {currentStep === 0 ? '시작' : '재생'}
+            </button>
+          ) : (
+            <button
+              onClick={handlePause}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors"
+            >
+              <Pause size={18} /> 일시정지
+            </button>
+          )}
+          <button
+            onClick={handleNext}
+            disabled={currentStep >= 6}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            <SkipForward size={18} /> 다음
+          </button>
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            <RotateCcw size={18} /> 처음부터
+          </button>
+        </div>
+      </div>
+
+      {/* 타임라인 */}
+      <div className="bg-slate-800 rounded-xl p-4 mb-6 border border-slate-700">
+        <div className="flex items-center justify-between">
+          {steps.map((step, i) => (
+            <div key={step.id} className="flex items-center">
+              <div className="flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  currentStep >= step.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-700 text-slate-400'
+                }`}>
+                  <step.icon size={18} />
+                </div>
+                <span className={`text-xs mt-2 ${currentStep >= step.id ? 'text-white' : 'text-slate-500'}`}>
+                  {step.name}
+                </span>
+              </div>
+              {i < steps.length - 1 && (
+                <div className={`w-16 h-0.5 mx-2 transition-all ${
+                  currentStep > step.id ? 'bg-indigo-600' : 'bg-slate-700'
+                }`} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 현재 단계 설명 */}
+      {currentStep > 0 && currentStep <= 6 && (
+        <div className="text-center mb-4 text-slate-400">
+          Step {currentStep}/6: {steps[currentStep - 1]?.description}
+        </div>
+      )}
+
+      {/* 메인 시뮬레이션 영역 */}
+      <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+        {currentStep === 0 && (
+          <div className="h-full flex flex-col items-center justify-center text-slate-400">
+            <Zap size={64} className="text-slate-600 mb-4" />
+            <p className="text-lg">시작 버튼을 눌러 시뮬레이션을 시작하세요</p>
+          </div>
+        )}
+        {currentStep === 1 && <VoiceRecordingScene isActive={true} />}
+        {currentStep === 2 && <ApprovalScene isActive={true} />}
+        {currentStep === 3 && <DashboardUpdateScene isActive={true} />}
+        {currentStep === 4 && <ChatbotAlertScene isActive={true} />}
+        {currentStep === 5 && <TalentAcquisitionScene isActive={true} />}
+        {currentStep === 6 && <PerformanceEvalScene isActive={true} />}
+      </div>
+    </div>
+  );
+};
+
 interface TalentViewProps {
   employees: typeof EMPLOYEES;
 }
@@ -1519,11 +2156,28 @@ const OrchestratorApp = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
 
   // 동적 데이터 상태 관리
-  const [employees] = useState(INITIAL_EMPLOYEES);
+  const [employees, setEmployees] = useState(INITIAL_EMPLOYEES);
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
   const [workModules, setWorkModules] = useState(INITIAL_WORK_MODULES);
 
-  // 새 프로젝트 추가 함수 (workModules도 함께 추가)
+  // 직원 부하율 업데이트 함수
+  const updateEmployeeLoads = (memberIds: number[], loadIncrease: number = 15) => {
+    setEmployees(prev => prev.map(emp => {
+      if (memberIds.includes(emp.id)) {
+        const newLoad = Math.min(emp.load + loadIncrease, 100);
+        const newRisk = newLoad >= 85 ? "High" : newLoad >= 60 ? "Medium" : "Low";
+        return {
+          ...emp,
+          load: newLoad,
+          risk: newRisk,
+          status: emp.status === "Idle" ? "Working" : emp.status
+        };
+      }
+      return emp;
+    }));
+  };
+
+  // 새 프로젝트 추가 함수 (workModules도 함께 추가 + 직원 부하율 업데이트)
   const addProject = (
     newProject: typeof INITIAL_PROJECTS[0],
     newWorkModules?: typeof INITIAL_WORK_MODULES[number]
@@ -1534,6 +2188,10 @@ const OrchestratorApp = () => {
         ...prev,
         [newProject.id]: newWorkModules
       }));
+    }
+    // 새 프로젝트에 배정된 멤버들의 부하율 증가
+    if (newProject.members && newProject.members.length > 0) {
+      updateEmployeeLoads(newProject.members);
     }
   };
 
@@ -1571,6 +2229,12 @@ const OrchestratorApp = () => {
             label="Analytics"
             active={activeTab === "analytics"}
             onClick={() => setActiveTab("analytics")}
+          />
+          <SidebarItem
+            icon={Zap}
+            label="Simulation"
+            active={activeTab === "simulation"}
+            onClick={() => setActiveTab("simulation")}
           />
         </div>
 
@@ -1633,6 +2297,12 @@ const OrchestratorApp = () => {
             )}
             {activeTab === "analytics" && (
               <AnalyticsView
+                employees={employees}
+                projects={projects}
+              />
+            )}
+            {activeTab === "simulation" && (
+              <SimulationView
                 employees={employees}
                 projects={projects}
               />
