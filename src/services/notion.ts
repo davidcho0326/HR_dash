@@ -363,8 +363,9 @@ export function transformNotionToProject(notionPage: NotionPage): NotionProject 
   try {
     const props = notionPage.properties as Record<string, unknown>;
 
-    // 기본 구조로 매핑 (Notion DB 스키마에 따라 조정 필요)
-    const name = extractTitle(props['이름'] || props['Name'] || props['제목']);
+    // Notion DB 스키마에 맞춰 매핑 (IT 스타트업 워크스페이스 기준)
+    // 프로젝트명, 담당 팀, 마감일, 상태, 시작일, 우선순위, 진행률
+    const name = extractTitle(props['프로젝트명'] || props['이름'] || props['Name'] || props['제목']);
     if (!name) return null;
 
     const phase = extractSelect(props['상태'] || props['Status'] || props['Phase']) || 'Planning';
@@ -379,8 +380,8 @@ export function transformNotionToProject(notionPage: NotionPage): NotionProject 
       progress,
       status,
       startDate: extractDate(props['시작일'] || props['Start Date'] || props['시작']) || '2025-01-01',
-      endDate: extractDate(props['종료일'] || props['End Date'] || props['마감']) || '2025-12-31',
-      teamType: extractSelect(props['팀'] || props['Team'] || props['담당팀']) || 'COLLABORATION',
+      endDate: extractDate(props['마감일'] || props['종료일'] || props['End Date'] || props['마감']) || '2025-12-31',
+      teamType: extractSelect(props['담당 팀'] || props['팀'] || props['Team'] || props['담당팀']) || 'COLLABORATION',
       members: [], // Relation은 별도 처리 필요
       category: extractSelect(props['카테고리'] || props['Category'] || props['분류']) || 'General',
       _source: 'notion',
