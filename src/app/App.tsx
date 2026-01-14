@@ -7,7 +7,12 @@ import {
   syncAllFromNotion,
   NotionProject,
   NotionTask,
-  NotionSyncStatus
+  NotionSyncStatus,
+  NotionProjectDetail,
+  TaskStats,
+  buildProjectDetail,
+  getTaskStatusIcon,
+  getTaskStatusColor
 } from '../services/notion';
 import {
   TeamType,
@@ -1466,9 +1471,10 @@ interface ProjectViewProps {
   onEmployeeClick: (employee: ExtendedEmployee) => void;
   notionProjects?: NotionProject[];
   notionTasks?: NotionTask[];
+  onNotionProjectClick?: (project: NotionProject) => void;
 }
 
-const ProjectView = ({ employees, projects, workModules, onAddProject, onEmployeeClick, notionProjects = [], notionTasks = [] }: ProjectViewProps) => {
+const ProjectView = ({ employees, projects, workModules, onAddProject, onEmployeeClick, notionProjects = [], notionTasks = [], onNotionProjectClick }: ProjectViewProps) => {
   const [showAiProposal, setShowAiProposal] = useState(false);
   const [viewMode, setViewMode] = useState<'timeline' | 'gantt'>('gantt');
 
@@ -2109,7 +2115,8 @@ const ProjectView = ({ employees, projects, workModules, onAddProject, onEmploye
               {notionProjects.map((project) => (
                 <div
                   key={project.notionId}
-                  className="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50 hover:border-purple-500/30 transition-colors"
+                  className="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50 hover:border-purple-500/30 transition-colors cursor-pointer"
+                  onClick={() => onNotionProjectClick?.(project)}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h4 className="text-sm font-medium text-white truncate flex-1">{project.name}</h4>
@@ -3716,6 +3723,281 @@ const INITIAL_PROJECTS = PROJECTS;
 const INITIAL_WORK_MODULES = WORK_MODULES;
 
 // ============================================
+// Notion 프로젝트 상세 모달 컴포넌트
+// ============================================
+interface NotionProjectModalProps {
+  project: NotionProject | null;
+  tasks: NotionTask[];
+  onClose: () => void;
+}
+
+const NotionProjectModal = ({ project, tasks, onClose }: NotionProjectModalProps) => {
+  if (!project) return null;
+
+  // 프로젝트 상세 정보 계산
+  const detail = buildProjectDetail(project, tasks);
+
+  // 타임라인 계산
+  const startDate = new Date(project.startDate);
+  const endDate = new Date(project.endDate);
+  const today = new Date();
+  const totalDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const elapsedDays = Math.max(0, (today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const timelineProgress = Math.min(100, Math.max(0, (elapsedDays / totalDays) * 100));
+
+  // 상태에 따른 배지 색상
+  const getPhaseColor = (phase: string) => {
+    switch (phase) {
+      case '완료':
+      case 'Complete':
+        return 'bg-emerald-500/20 text-emerald-400';
+      case '개발중':
+      case 'Development':
+        return 'bg-blue-500/20 text-blue-400';
+      case '테스트':
+      case 'Testing':
+        return 'bg-purple-500/20 text-purple-400';
+      case '기획':
+      case 'Planning':
+      default:
+        return 'bg-amber-500/20 text-amber-400';
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* 배경 오버레이 */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+      {/* 모달 컨텐츠 */}
+      <div
+        className="relative w-full max-w-3xl bg-slate-900 rounded-2xl border border-purple-500/30 shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="bg-gradient-to-r from-purple-900/50 to-slate-900 p-6 border-b border-slate-700">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
+          >
+            <X size={20} />
+          </button>
+
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-purple-600 rounded-xl">
+              <Briefcase size={24} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-xl font-bold text-white">{project.name}</h2>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${getPhaseColor(project.phase)}`}>
+                  {project.phase}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-slate-400">
+                <span className="flex items-center gap-1">
+                  <Users size={14} />
+                  {project.teamType}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Calendar size={14} />
+                  {project.startDate} ~ {project.endDate}
+                </span>
+                <span className={`flex items-center gap-1 ${detail.daysRemaining < 0 ? 'text-red-400' : detail.daysRemaining < 7 ? 'text-amber-400' : 'text-slate-400'}`}>
+                  <Clock size={14} />
+                  {detail.daysRemaining < 0 ? `D+${Math.abs(detail.daysRemaining)}` : `D-${detail.daysRemaining}`}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 바디 */}
+        <div className="p-6">
+          <div className="grid grid-cols-3 gap-6">
+            {/* 왼쪽: 진행률 */}
+            <div className="space-y-4">
+              {/* 전체 진행률 */}
+              <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                <h3 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+                  <Target size={16} className="text-purple-400" />
+                  전체 진행률
+                </h3>
+                <div className="relative w-full h-3 bg-slate-700 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="absolute h-full bg-gradient-to-r from-purple-600 to-purple-400 rounded-full transition-all duration-500"
+                    style={{ width: `${detail.progressPercentage}%` }}
+                  />
+                </div>
+                <div className="text-right text-lg font-bold text-purple-400">
+                  {detail.progressPercentage}%
+                </div>
+              </div>
+
+              {/* 스토리포인트 */}
+              <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                <h3 className="text-sm font-medium text-slate-300 mb-3">스토리포인트</h3>
+                <div className="text-2xl font-bold text-white mb-1">
+                  {detail.completedStoryPoints} <span className="text-slate-500 text-lg">/ {detail.totalStoryPoints} pt</span>
+                </div>
+                <div className="text-xs text-slate-500">완료된 포인트</div>
+              </div>
+
+              {/* 태스크 현황 */}
+              <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                <h3 className="text-sm font-medium text-slate-300 mb-3">태스크 현황</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-2 text-emerald-400">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      완료
+                    </span>
+                    <span className="font-medium text-white">{detail.taskStats.completed}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-2 text-blue-400">
+                      <span className="w-2 h-2 rounded-full bg-blue-400" />
+                      진행중
+                    </span>
+                    <span className="font-medium text-white">{detail.taskStats.inProgress}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-2 text-amber-400">
+                      <span className="w-2 h-2 rounded-full bg-amber-400" />
+                      리뷰
+                    </span>
+                    <span className="font-medium text-white">{detail.taskStats.review}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-2 text-slate-400">
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      백로그
+                    </span>
+                    <span className="font-medium text-white">{detail.taskStats.backlog}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 오른쪽: 태스크 목록 (2열 차지) */}
+            <div className="col-span-2 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+              <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+                <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-purple-400" />
+                  관련 태스크
+                </h3>
+                <span className="text-xs text-purple-400 bg-purple-500/20 px-2 py-1 rounded-full">
+                  {detail.tasks.length}개
+                </span>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {detail.tasks.length === 0 ? (
+                  <div className="p-8 text-center text-slate-500">
+                    연결된 태스크가 없습니다
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-700/50">
+                    {detail.tasks.map((task) => (
+                      <div
+                        key={task.notionId}
+                        className="p-4 hover:bg-slate-700/30 transition-colors"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{getTaskStatusIcon(task.status || '')}</span>
+                            <span className="font-medium text-white">{task.name}</span>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded-full ${getTaskStatusColor(task.status || '')}`}>
+                            {task.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-500">
+                          {task.techStack && task.techStack.length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {task.techStack.map((tech, idx) => (
+                                <span key={idx} className="bg-slate-700 px-2 py-0.5 rounded text-slate-300">
+                                  {tech}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {task.storyPoints && (
+                            <span className="text-purple-400 font-medium">{task.storyPoints}pt</span>
+                          )}
+                          {task.assignee && (
+                            <span className="flex items-center gap-1">
+                              <User size={12} />
+                              {task.assignee}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 타임라인 */}
+          <div className="mt-6 bg-slate-800 rounded-xl p-4 border border-slate-700">
+            <h3 className="text-sm font-medium text-slate-300 mb-4 flex items-center gap-2">
+              <BarChart2 size={16} className="text-purple-400" />
+              프로젝트 타임라인
+            </h3>
+            <div className="relative">
+              <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full"
+                  style={{ width: `${timelineProgress}%` }}
+                />
+              </div>
+              {/* Today 마커 */}
+              <div
+                className="absolute top-0 w-0.5 h-6 bg-white -mt-1.5"
+                style={{ left: `${timelineProgress}%` }}
+              >
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] text-white bg-slate-600 px-1.5 py-0.5 rounded whitespace-nowrap">
+                  Today
+                </div>
+              </div>
+              <div className="flex justify-between mt-2 text-xs text-slate-500">
+                <span>{project.startDate}</span>
+                <span>{project.endDate}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 푸터 */}
+        <div className="p-4 bg-slate-800/50 border-t border-slate-700 flex justify-end gap-3">
+          {project.notionId && (
+            <a
+              href={`https://notion.so/${project.notionId.replace(/-/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Link2 size={16} />
+              Notion에서 열기
+            </a>
+          )}
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // 인사 카드 모달 컴포넌트
 // ============================================
 interface EmployeeModalProps {
@@ -3843,6 +4125,9 @@ const OrchestratorApp = () => {
 
   // 인사 카드 모달 상태
   const [selectedEmployee, setSelectedEmployee] = useState<ExtendedEmployee | null>(null);
+
+  // Notion 프로젝트 상세 모달 상태
+  const [selectedNotionProject, setSelectedNotionProject] = useState<NotionProject | null>(null);
 
   // ============================================
   // Notion 동기화 상태 관리
@@ -4056,6 +4341,7 @@ const OrchestratorApp = () => {
                 onEmployeeClick={setSelectedEmployee}
                 notionProjects={notionProjects}
                 notionTasks={notionTasks}
+                onNotionProjectClick={setSelectedNotionProject}
               />
             )}
             {activeTab === "talent" && (
@@ -4082,11 +4368,21 @@ const OrchestratorApp = () => {
       </main>
 
       {/* 인사 카드 모달 */}
+      {/* 인사 카드 모달 */}
       {selectedEmployee && (
         <EmployeeModal
           employee={selectedEmployee}
           onClose={() => setSelectedEmployee(null)}
           projects={projects}
+        />
+      )}
+
+      {/* Notion 프로젝트 상세 모달 */}
+      {selectedNotionProject && (
+        <NotionProjectModal
+          project={selectedNotionProject}
+          tasks={notionTasks}
+          onClose={() => setSelectedNotionProject(null)}
         />
       )}
     </div>

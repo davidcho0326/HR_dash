@@ -315,6 +315,10 @@ export interface NotionTask {
   techStack: string[];
   estimatedHours: number;
   _source: 'notion';
+  // 추가 필드 (Notion에서 직접 가져올 수 있는 경우)
+  status?: string;           // 상태 (진행중, 리뷰, 완료 등)
+  storyPoints?: number;      // 스토리포인트
+  assignee?: string;         // 담당자 이름 (단일)
 }
 
 /**
@@ -354,6 +358,12 @@ function extractRichText(property: unknown): string {
   if (!property || typeof property !== 'object') return '';
   const prop = property as { rich_text?: Array<{ plain_text?: string }> };
   return prop.rich_text?.[0]?.plain_text || '';
+}
+
+function extractPerson(property: unknown): string | undefined {
+  if (!property || typeof property !== 'object') return undefined;
+  const prop = property as { people?: Array<{ name?: string }> };
+  return prop.people?.[0]?.name || undefined;
 }
 
 /**
@@ -402,6 +412,15 @@ export function transformNotionToTask(notionPage: NotionPage): NotionTask | null
     const name = extractTitle(props['이름'] || props['Name'] || props['태스크명'] || props['제목']);
     if (!name) return null;
 
+    // 상태 추출 (Notion DB의 '상태' 필드)
+    const status = extractSelect(props['상태'] || props['Status'] || props['State']) || '백로그';
+
+    // 스토리포인트 추출
+    const storyPoints = extractNumber(props['스토리 포인트'] || props['Story Points'] || props['포인트']) || 0;
+
+    // 담당자 이름 추출 (Person 타입은 별도 처리 필요, 일단 텍스트로)
+    const assignee = extractPerson(props['담당자'] || props['Assignee'] || props['담당']);
+
     return {
       id: `notion-${notionPage.id.replace(/-/g, '').substring(0, 8)}`,
       notionId: notionPage.id,
@@ -412,9 +431,13 @@ export function transformNotionToTask(notionPage: NotionPage): NotionTask | null
       assignees: [], // Relation에서 추출 필요
       startDate: extractDate(props['시작일'] || props['Start Date']) || '2025-01-01',
       endDate: extractDate(props['종료일'] || props['End Date'] || props['마감일']) || '2025-12-31',
-      techStack: extractMultiSelect(props['기술스택'] || props['Tech Stack'] || props['스킬']),
+      techStack: extractMultiSelect(props['기술스택'] || props['Tech Stack'] || props['스킬'] || props['기술 스택']),
       estimatedHours: extractNumber(props['예상시간'] || props['Estimated Hours']) || 40,
       _source: 'notion',
+      // 추가 필드
+      status,
+      storyPoints,
+      assignee,
     };
   } catch (error) {
     console.error('Task 변환 실패:', error, notionPage);
@@ -561,3 +584,155 @@ export const NotionDBIds = {
   TASK: NOTION_DB_TASK,
   SPRINT: NOTION_DB_SPRINT,
 };
+
+// ============================================================
+// Phase 6: 프로젝트 상세 모달용 함수들
+// ============================================================
+
+/**
+ * 태스크 상태별 통계 타입
+ */
+export interface TaskStats {
+  completed: number;
+  inProgress: number;
+  review: number;
+  backlog: number;
+  total: number;
+}
+
+/**
+ * 프로젝트 상세 정보 타입 (모달 표시용)
+ */
+export interface NotionProjectDetail extends NotionProject {
+  tasks: NotionTask[];
+  totalStoryPoints: number;
+  completedStoryPoints: number;
+  taskStats: TaskStats;
+  daysRemaining: number;
+  progressPercentage: number;
+}
+
+/**
+ * 태스크 상태를 카테고리로 분류
+ */
+function categorizeTaskStatus(status: string): keyof Omit<TaskStats, 'total'> {
+  const statusLower = status.toLowerCase();
+
+  if (statusLower.includes('완료') || statusLower === 'done' || statusLower === 'complete') {
+    return 'completed';
+  }
+  if (statusLower.includes('진행') || statusLower === 'in progress' || statusLower === 'doing') {
+    return 'inProgress';
+  }
+  if (statusLower.includes('리뷰') || statusLower === 'review' || statusLower === 'in review') {
+    return 'review';
+  }
+  // 백로그, 대기, todo 등
+  return 'backlog';
+}
+
+/**
+ * 프로젝트에 연결된 태스크 목록 조회
+ * 현재는 모든 태스크를 반환 (Notion relation 매핑은 추후 구현)
+ */
+export function getTasksForProject(
+  project: NotionProject,
+  allTasks: NotionTask[]
+): NotionTask[] {
+  // TODO: Notion relation 기반 필터링 구현
+  // 현재는 프로젝트 이름이나 ID로 매칭할 수 없어 모든 태스크 반환
+  // 실제 연결은 Notion DB의 "소속 프로젝트" relation 필드 활용 필요
+  return allTasks;
+}
+
+/**
+ * 프로젝트 상세 정보 생성 (모달 표시용)
+ */
+export function buildProjectDetail(
+  project: NotionProject,
+  allTasks: NotionTask[]
+): NotionProjectDetail {
+  const tasks = getTasksForProject(project, allTasks);
+
+  // 태스크 상태별 통계
+  const taskStats: TaskStats = {
+    completed: 0,
+    inProgress: 0,
+    review: 0,
+    backlog: 0,
+    total: tasks.length,
+  };
+
+  let totalStoryPoints = 0;
+  let completedStoryPoints = 0;
+
+  tasks.forEach(task => {
+    const category = categorizeTaskStatus(task.status || 'backlog');
+    taskStats[category]++;
+
+    const points = task.storyPoints || 0;
+    totalStoryPoints += points;
+
+    if (category === 'completed') {
+      completedStoryPoints += points;
+    }
+  });
+
+  // 남은 일수 계산
+  const today = new Date();
+  const endDate = new Date(project.endDate);
+  const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  // 진행률 계산 우선순위:
+  // 1. 프로젝트에 직접 설정된 진행률 (Notion에서 수동 입력한 값)
+  // 2. 스토리포인트 기반 계산
+  // 3. 태스크 완료 개수 기반 계산
+  let progressPercentage = 0;
+
+  if (project.progress && project.progress > 0) {
+    // Notion에서 직접 설정한 프로젝트 진행률 우선 사용
+    progressPercentage = project.progress;
+  } else if (totalStoryPoints > 0) {
+    progressPercentage = Math.round((completedStoryPoints / totalStoryPoints) * 100);
+  } else if (tasks.length > 0) {
+    progressPercentage = Math.round((taskStats.completed / tasks.length) * 100);
+  }
+
+  return {
+    ...project,
+    tasks,
+    totalStoryPoints,
+    completedStoryPoints,
+    taskStats,
+    daysRemaining,
+    progressPercentage,
+  };
+}
+
+/**
+ * 태스크 상태에 따른 아이콘 반환
+ */
+export function getTaskStatusIcon(status: string): string {
+  const category = categorizeTaskStatus(status);
+  switch (category) {
+    case 'completed': return '✅';
+    case 'inProgress': return '🔄';
+    case 'review': return '👀';
+    case 'backlog': return '⏳';
+    default: return '📋';
+  }
+}
+
+/**
+ * 태스크 상태에 따른 색상 클래스 반환
+ */
+export function getTaskStatusColor(status: string): string {
+  const category = categorizeTaskStatus(status);
+  switch (category) {
+    case 'completed': return 'text-emerald-400 bg-emerald-500/20';
+    case 'inProgress': return 'text-blue-400 bg-blue-500/20';
+    case 'review': return 'text-amber-400 bg-amber-500/20';
+    case 'backlog': return 'text-slate-400 bg-slate-500/20';
+    default: return 'text-slate-400 bg-slate-500/20';
+  }
+}
