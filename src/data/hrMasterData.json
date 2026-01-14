@@ -1,0 +1,381 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdated": "2026-01-13",
+    "source": "직무체계_정의서_v2.md",
+    "description": "HR Dashboard 원천 데이터 - Excel/JSON 호환 형식"
+  },
+  "employees": [
+    {
+      "id": 1,
+      "name": "김철수",
+      "role": "Backend Lead",
+      "teamType": "AI_ENGINEERING",
+      "experienceLevel": "senior",
+      "salary": 8500,
+      "skills": ["PYTHON", "FASTAPI_DJANGO", "AWS_GCP", "DOCKER", "SQL", "GIT", "ARCHITECTURE_DESIGN"]
+    },
+    {
+      "id": 2,
+      "name": "이영희",
+      "role": "Product Manager",
+      "teamType": "AX",
+      "experienceLevel": "senior",
+      "salary": 7200,
+      "skills": ["PROJECT_MANAGEMENT", "REQUIREMENTS_ANALYSIS", "COMMUNICATION", "STAKEHOLDER_MANAGEMENT", "PRD_WRITING", "PRESENTATION", "DATA_LITERACY", "UX_PLANNING", "RISK_MANAGEMENT"]
+    },
+    {
+      "id": 3,
+      "name": "박지성",
+      "role": "Frontend Dev",
+      "teamType": "AI_ENGINEERING",
+      "experienceLevel": "mid",
+      "salary": 5800,
+      "skills": ["JAVASCRIPT_TYPESCRIPT", "REACT_NEXTJS", "GIT", "RESPONSIVE_DESIGN", "COMPONENT_DEVELOPMENT"]
+    },
+    {
+      "id": 4,
+      "name": "최수민",
+      "role": "UI Designer",
+      "teamType": "AX",
+      "experienceLevel": "mid",
+      "salary": 5200,
+      "skills": ["UX_PLANNING", "DATA_LITERACY", "COMMUNICATION", "PRESENTATION", "FASHION_DOMAIN", "REQUIREMENTS_ANALYSIS"]
+    },
+    {
+      "id": 5,
+      "name": "정민우",
+      "role": "DevOps",
+      "teamType": "AI_ENGINEERING",
+      "experienceLevel": "mid",
+      "salary": 6500,
+      "skills": ["DOCKER", "KUBERNETES", "AWS_GCP", "TERRAFORM", "CI_CD", "MONITORING_SYSTEM", "GIT"]
+    },
+    {
+      "id": 6,
+      "name": "한지원",
+      "role": "AI Engineer",
+      "teamType": "AI_ENGINEERING",
+      "experienceLevel": "senior",
+      "salary": 9200,
+      "skills": ["PYTHON", "LLM_API", "VECTOR_DB", "LANGCHAIN_LLAMAINDEX", "PROMPT_ENGINEERING_SKILL", "RAG_SYSTEM"]
+    },
+    {
+      "id": 7,
+      "name": "윤서연",
+      "role": "Data Engineer",
+      "teamType": "AI_ENGINEERING",
+      "experienceLevel": "mid",
+      "salary": 5500,
+      "skills": ["PYTHON", "SNOWFLAKE_BIGQUERY", "AIRFLOW", "DBT", "SQL", "ETL_PROCESS", "DATA_QUALITY_MANAGEMENT"]
+    },
+    {
+      "id": 8,
+      "name": "강민석",
+      "role": "Data Analyst",
+      "teamType": "AI_ENGINEERING",
+      "experienceLevel": "junior",
+      "salary": 4200,
+      "skills": ["SQL", "PANDAS_POLARS", "PYTHON", "DATA_MODELING", "KPI_DEFINITION", "DASHBOARD_DESIGN", "ANALYSIS_REPORT"]
+    }
+  ],
+  "projects": [
+    {
+      "id": 103,
+      "name": "사내 AI 어시스턴트 구축",
+      "phase": "Development",
+      "teamType": "COLLABORATION",
+      "members": [1, 2, 3, 6],
+      "startDate": "2025-11-01",
+      "endDate": "2026-01-31",
+      "category": "AI/ML",
+      "difficulty": "상",
+      "description": "직무체계 정의서 4.1절 - AI 엔지니어링팀 + AX팀 협업"
+    },
+    {
+      "id": 104,
+      "name": "패션 트렌드 예측 대시보드",
+      "phase": "Planning",
+      "teamType": "COLLABORATION",
+      "members": [2, 3, 4, 7],
+      "startDate": "2025-12-01",
+      "endDate": "2026-01-31",
+      "category": "Dashboard",
+      "difficulty": "중",
+      "description": "직무체계 정의서 4.2절 - AX팀 + AI 엔지니어링팀 협업"
+    },
+    {
+      "id": 105,
+      "name": "AI 기반 상품 자동 태깅 시스템",
+      "phase": "Design",
+      "teamType": "COLLABORATION",
+      "members": [2, 4, 1, 6],
+      "startDate": "2025-11-15",
+      "endDate": "2026-02-15",
+      "category": "AI/ML",
+      "difficulty": "상",
+      "description": "직무체계 정의서 4.3절 - AX팀 + AI 엔지니어링팀 협업"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "w103-1",
+      "projectId": 103,
+      "name": "RAG 시스템 구축",
+      "taskType": "RAG_SYSTEM",
+      "teamOwner": "AI_ENGINEERING",
+      "assignees": [6],
+      "startDate": "2025-11-01",
+      "endDate": "2025-12-31",
+      "progress": 50,
+      "allocationPercent": 100
+    },
+    {
+      "id": "w103-2",
+      "projectId": 103,
+      "name": "벡터DB 스키마 설계",
+      "taskType": "SCHEMA_DESIGN",
+      "teamOwner": "AI_ENGINEERING",
+      "assignees": [6],
+      "startDate": "2025-11-01",
+      "endDate": "2025-11-30",
+      "progress": 70,
+      "allocationPercent": 20
+    },
+    {
+      "id": "w103-3",
+      "projectId": 103,
+      "name": "사내 문서 ETL 파이프라인",
+      "taskType": "ETL_PROCESS",
+      "teamOwner": "AI_ENGINEERING",
+      "assignees": [7],
+      "startDate": "2025-11-15",
+      "endDate": "2026-01-15",
+      "progress": 40,
+      "allocationPercent": 50
+    },
+    {
+      "id": "w103-4",
+      "projectId": 103,
+      "name": "챗봇 UI 개발",
+      "taskType": "UI_UX_IMPLEMENTATION",
+      "teamOwner": "AI_ENGINEERING",
+      "assignees": [3],
+      "startDate": "2025-12-01",
+      "endDate": "2026-01-31",
+      "progress": 35,
+      "allocationPercent": 80
+    },
+    {
+      "id": "w103-5",
+      "projectId": 103,
+      "name": "API 서버 구축",
+      "taskType": "API_DEVELOPMENT",
+      "teamOwner": "AI_ENGINEERING",
+      "assignees": [1],
+      "startDate": "2025-11-15",
+      "endDate": "2026-01-15",
+      "progress": 55,
+      "allocationPercent": 60
+    },
+    {
+      "id": "w103-6",
+      "projectId": 103,
+      "name": "CI/CD 및 배포 환경 구축",
+      "taskType": "CI_CD",
+      "teamOwner": "AI_ENGINEERING",
+      "assignees": [5],
+      "startDate": "2026-01-01",
+      "endDate": "2026-01-31",
+      "progress": 20,
+      "allocationPercent": 80
+    },
+    {
+      "id": "w103-7",
+      "projectId": 103,
+      "name": "요구사항 정의 업무",
+      "taskType": "REQUIREMENTS_DEFINITION",
+      "teamOwner": "AX",
+      "assignees": [2],
+      "startDate": "2025-11-01",
+      "endDate": "2025-11-30",
+      "progress": 85,
+      "allocationPercent": 40
+    },
+    {
+      "id": "w103-8",
+      "projectId": 103,
+      "name": "QA/검수 업무",
+      "taskType": "QA_REVIEW",
+      "teamOwner": "AX",
+      "assignees": [2],
+      "startDate": "2025-12-15",
+      "endDate": "2026-01-31",
+      "progress": 20,
+      "allocationPercent": 30
+    },
+    {
+      "id": "w103-9",
+      "projectId": 103,
+      "name": "교육/온보딩 업무",
+      "taskType": "TRAINING_ONBOARDING",
+      "teamOwner": "AX",
+      "assignees": [2],
+      "startDate": "2026-01-20",
+      "endDate": "2026-01-31",
+      "progress": 0,
+      "allocationPercent": 30
+    },
+    {
+      "id": "w104-1",
+      "projectId": 104,
+      "name": "프로젝트 기획 업무",
+      "taskType": "PROJECT_PLANNING",
+      "teamOwner": "AX",
+      "assignees": [2],
+      "startDate": "2025-12-01",
+      "endDate": "2025-12-15",
+      "progress": 90,
+      "allocationPercent": 40
+    },
+    {
+      "id": "w104-2",
+      "projectId": 104,
+      "name": "요구사항 정의 업무",
+      "taskType": "REQUIREMENTS_DEFINITION",
+      "teamOwner": "AX",
+      "assignees": [4],
+      "startDate": "2025-12-10",
+      "endDate": "2025-12-31",
+      "progress": 70,
+      "allocationPercent": 100
+    },
+    {
+      "id": "w104-3",
+      "projectId": 104,
+      "name": "데이터 처리 프로토타입 구성",
+      "taskType": "DATA_PROTOTYPE",
+      "teamOwner": "AX",
+      "assignees": [4],
+      "startDate": "2025-12-20",
+      "endDate": "2026-01-10",
+      "progress": 30,
+      "allocationPercent": 60
+    },
+    {
+      "id": "w104-4",
+      "projectId": 104,
+      "name": "이해관계자 조율 업무",
+      "taskType": "STAKEHOLDER_COORDINATION",
+      "teamOwner": "AX",
+      "assignees": [2],
+      "startDate": "2025-12-01",
+      "endDate": "2026-01-20",
+      "progress": 50,
+      "allocationPercent": 20
+    },
+    {
+      "id": "w104-5",
+      "projectId": 104,
+      "name": "사용자 테스트 설계 업무",
+      "taskType": "USER_TEST_DESIGN",
+      "teamOwner": "AX",
+      "assignees": [4],
+      "startDate": "2026-01-10",
+      "endDate": "2026-01-25",
+      "progress": 10,
+      "allocationPercent": 50
+    },
+    {
+      "id": "w104-6",
+      "projectId": 104,
+      "name": "교육/온보딩 업무",
+      "taskType": "TRAINING_ONBOARDING",
+      "teamOwner": "AX",
+      "assignees": [2],
+      "startDate": "2026-01-25",
+      "endDate": "2026-01-31",
+      "progress": 0,
+      "allocationPercent": 30
+    },
+    {
+      "id": "w104-7",
+      "projectId": 104,
+      "name": "대시보드 UI 개발",
+      "taskType": "UI_UX_IMPLEMENTATION",
+      "teamOwner": "AI_ENGINEERING",
+      "assignees": [3],
+      "startDate": "2025-12-20",
+      "endDate": "2026-01-31",
+      "progress": 15,
+      "allocationPercent": 60
+    },
+    {
+      "id": "w104-8",
+      "projectId": 104,
+      "name": "트렌드 데이터 ETL",
+      "taskType": "ETL_PROCESS",
+      "teamOwner": "AI_ENGINEERING",
+      "assignees": [7],
+      "startDate": "2025-12-15",
+      "endDate": "2026-01-20",
+      "progress": 10,
+      "allocationPercent": 40
+    },
+    {
+      "id": "w104-9",
+      "projectId": 104,
+      "name": "데이터 API 개발",
+      "taskType": "API_DEVELOPMENT",
+      "teamOwner": "AI_ENGINEERING",
+      "assignees": [3],
+      "startDate": "2026-01-05",
+      "endDate": "2026-01-31",
+      "progress": 5,
+      "allocationPercent": 40
+    }
+  ],
+  "skillDefinitions": {
+    "AX": [
+      { "id": "PROJECT_MANAGEMENT", "name": "프로젝트 관리 역량", "category": "MANAGEMENT" },
+      { "id": "REQUIREMENTS_ANALYSIS", "name": "요구사항 분석 역량", "category": "MANAGEMENT" },
+      { "id": "COMMUNICATION", "name": "커뮤니케이션 역량", "category": "MANAGEMENT" },
+      { "id": "STAKEHOLDER_MANAGEMENT", "name": "이해관계자 관리 역량", "category": "MANAGEMENT" },
+      { "id": "RISK_MANAGEMENT", "name": "리스크 관리 역량", "category": "MANAGEMENT" },
+      { "id": "PRD_WRITING", "name": "문서 작성(PRD) 역량", "category": "MANAGEMENT" },
+      { "id": "PRESENTATION", "name": "발표(PT) 역량", "category": "MANAGEMENT" },
+      { "id": "DATA_MODELING_SKILL", "name": "데이터 모델링 역량", "category": "MANAGEMENT" },
+      { "id": "DATA_LITERACY", "name": "데이터 리터러시", "category": "MANAGEMENT" },
+      { "id": "AI_TOOL_USAGE", "name": "AI 도구 활용 역량", "category": "MANAGEMENT" },
+      { "id": "UX_PLANNING", "name": "UX 기획 역량", "category": "MANAGEMENT" },
+      { "id": "BUSINESS_ANALYSIS", "name": "비즈니스 분석 역량", "category": "MANAGEMENT" },
+      { "id": "FASHION_DOMAIN", "name": "패션 도메인 지식", "category": "DOMAIN" },
+      { "id": "ENTERTAINMENT_DOMAIN", "name": "엔터 도메인 지식", "category": "DOMAIN" }
+    ],
+    "AI_ENGINEERING": [
+      { "id": "PYTHON", "name": "Python", "category": "DEVELOPMENT" },
+      { "id": "JAVASCRIPT_TYPESCRIPT", "name": "JavaScript/TypeScript", "category": "DEVELOPMENT" },
+      { "id": "SQL", "name": "SQL", "category": "DEVELOPMENT" },
+      { "id": "GIT", "name": "Git", "category": "DEVELOPMENT" },
+      { "id": "FASTAPI_DJANGO", "name": "FastAPI/Django", "category": "FRAMEWORK" },
+      { "id": "REACT_NEXTJS", "name": "React/Next.js", "category": "FRAMEWORK" },
+      { "id": "NODEJS", "name": "Node.js", "category": "FRAMEWORK" },
+      { "id": "AWS_GCP", "name": "AWS/GCP", "category": "INFRASTRUCTURE" },
+      { "id": "DOCKER", "name": "Docker", "category": "INFRASTRUCTURE" },
+      { "id": "KUBERNETES", "name": "Kubernetes", "category": "INFRASTRUCTURE" },
+      { "id": "TERRAFORM", "name": "Terraform", "category": "INFRASTRUCTURE" },
+      { "id": "SNOWFLAKE_BIGQUERY", "name": "Snowflake/BigQuery", "category": "DATA" },
+      { "id": "AIRFLOW", "name": "Airflow", "category": "DATA" },
+      { "id": "DBT", "name": "dbt", "category": "DATA" },
+      { "id": "PANDAS_POLARS", "name": "Pandas/Polars", "category": "DATA" },
+      { "id": "LLM_API", "name": "LLM API 활용", "category": "AI_ML" },
+      { "id": "VECTOR_DB", "name": "벡터DB", "category": "AI_ML" },
+      { "id": "LANGCHAIN_LLAMAINDEX", "name": "LangChain/LlamaIndex", "category": "AI_ML" },
+      { "id": "MCP", "name": "MCP", "category": "AI_ML" },
+      { "id": "PROMPT_ENGINEERING_SKILL", "name": "프롬프트 엔지니어링", "category": "AI_ML" },
+      { "id": "TECH_DOCUMENTATION", "name": "기술 문서 작성", "category": "COLLABORATION" },
+      { "id": "CODE_REVIEW", "name": "코드 리뷰", "category": "COLLABORATION" },
+      { "id": "ARCHITECTURE_DESIGN", "name": "아키텍처 설계", "category": "COLLABORATION" }
+    ]
+  }
+}

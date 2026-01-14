@@ -1,10 +1,19 @@
 // Gemini API Service for HR Dashboard
-// AI 팀 구성 추천 기능
+// AI 팀 구성 추천 기능 - F&F AI 직무체계 기반
+
+import {
+  TeamType,
+  TaskCategory,
+  SkillType,
+  TaskDefinition,
+  SkillDefinition
+} from '../types/organization';
+import { TASK_DEFINITIONS, SKILL_DEFINITIONS } from '../data/masterData';
 
 // gemini-2.0-flash가 안정적인 최신 모델입니다
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-// 타입 정의
+// 타입 정의 (레거시 호환)
 export interface Employee {
   id: number;
   name: string;
@@ -12,6 +21,13 @@ export interface Employee {
   skills: string[];
   load: number;
   status: string;
+}
+
+// 확장된 직원 타입 (새 직무체계 반영)
+export interface ExtendedEmployeeInput extends Employee {
+  teamType?: TeamType;
+  skillSet?: SkillType[];
+  totalAllocation?: number;
 }
 
 export interface Project {
@@ -46,11 +62,36 @@ export interface TeamProposal {
   error?: string;
 }
 
-// 직원 정보를 프롬프트용 텍스트로 변환
+// 직원 정보를 프롬프트용 텍스트로 변환 (기본)
 function formatEmployeesForPrompt(employees: Employee[]): string {
   return employees.map(emp =>
     `- ${emp.name} (ID: ${emp.id}): ${emp.role}, 스킬: ${emp.skills.join(', ')}, 현재 부하율: ${emp.load}%, 상태: ${emp.status}`
   ).join('\n');
+}
+
+// 확장된 직원 정보 포맷팅 (Task-Skill 매트릭스 기반)
+export function formatExtendedEmployeesForPrompt(employees: ExtendedEmployeeInput[]): string {
+  return employees.map(emp => {
+    const teamLabel = emp.teamType === 'AX' ? 'AX팀(PM/기획)' : emp.teamType === 'AI_ENGINEERING' ? 'AI엔지니어링팀' : '미정';
+    const skillNames = emp.skillSet
+      ? emp.skillSet.map((s: SkillType) => SKILL_DEFINITIONS.find((d: SkillDefinition) => d.id === s)?.name || s).slice(0, 5).join(', ')
+      : emp.skills.join(', ');
+    const allocation = emp.totalAllocation ?? emp.load;
+    return `- ${emp.name} (ID: ${emp.id}): ${emp.role} [${teamLabel}]
+    스킬: ${skillNames}${emp.skillSet && emp.skillSet.length > 5 ? ` 외 ${emp.skillSet.length - 5}개` : ''}
+    현재 투입률: ${allocation}%, 상태: ${emp.status}`;
+  }).join('\n');
+}
+
+// Task 정의를 프롬프트용 텍스트로 변환
+export function formatTasksForPrompt(taskIds: TaskCategory[]): string {
+  return taskIds.map((taskId: TaskCategory) => {
+    const task = TASK_DEFINITIONS.find((t: TaskDefinition) => t.id === taskId);
+    if (!task) return '';
+    const reqSkills = task.requiredSkills.map((s: SkillType) => SKILL_DEFINITIONS.find((d: SkillDefinition) => d.id === s)?.name || s).join(', ');
+    const recSkills = task.recommendedSkills.map((s: SkillType) => SKILL_DEFINITIONS.find((d: SkillDefinition) => d.id === s)?.name || s).join(', ');
+    return `- ${task.name}: 필수(${reqSkills}), 권장(${recSkills})`;
+  }).filter(Boolean).join('\n');
 }
 
 // Gemini API 호출
