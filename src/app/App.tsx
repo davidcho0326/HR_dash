@@ -1464,9 +1464,11 @@ interface ProjectViewProps {
   workModules: typeof WORK_MODULES;
   onAddProject: (project: typeof PROJECTS[0], workModules?: typeof WORK_MODULES[number]) => void;
   onEmployeeClick: (employee: ExtendedEmployee) => void;
+  notionProjects?: NotionProject[];
+  notionTasks?: NotionTask[];
 }
 
-const ProjectView = ({ employees, projects, workModules, onAddProject, onEmployeeClick }: ProjectViewProps) => {
+const ProjectView = ({ employees, projects, workModules, onAddProject, onEmployeeClick, notionProjects = [], notionTasks = [] }: ProjectViewProps) => {
   const [showAiProposal, setShowAiProposal] = useState(false);
   const [viewMode, setViewMode] = useState<'timeline' | 'gantt'>('gantt');
 
@@ -2087,8 +2089,66 @@ const ProjectView = ({ employees, projects, workModules, onAddProject, onEmploye
         )}
       </div>
 
-      {/* 사이드 패널: Manager Override + AI Proposal */}
-      <div className="w-80 flex-shrink-0 flex flex-col space-y-4">
+      {/* 사이드 패널: Notion Projects + Manager Override + AI Proposal */}
+      <div className="w-80 flex-shrink-0 flex flex-col space-y-4 overflow-y-auto">
+        {/* Notion 연동 프로젝트 */}
+        {notionProjects.length > 0 && (
+          <div className="bg-gradient-to-b from-purple-900/40 to-slate-800 p-4 rounded-xl border border-purple-500/30">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-purple-600 rounded-lg">
+                  <Cloud size={16} className="text-white" />
+                </div>
+                <span className="text-sm font-medium text-purple-300">Notion 프로젝트</span>
+              </div>
+              <span className="text-xs text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded-full">
+                {notionProjects.length}개
+              </span>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {notionProjects.map((project) => (
+                <div
+                  key={project.notionId}
+                  className="bg-slate-900/60 p-3 rounded-lg border border-slate-700/50 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="text-sm font-medium text-white truncate flex-1">{project.name}</h4>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ml-2 ${
+                      project.phase === 'Complete' ? 'bg-emerald-500/20 text-emerald-400' :
+                      project.phase === 'Development' ? 'bg-blue-500/20 text-blue-400' :
+                      'bg-amber-500/20 text-amber-400'
+                    }`}>
+                      {project.phase}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 bg-slate-700 rounded-full h-1.5">
+                      <div
+                        className="bg-purple-500 h-1.5 rounded-full transition-all"
+                        style={{ width: `${project.progress}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400 w-8">{project.progress}%</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500">
+                    <span>{project.teamType}</span>
+                    <span>{project.endDate}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Notion Tasks 요약 */}
+            {notionTasks.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-700/50">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">연결된 Task</span>
+                  <span className="text-purple-400 font-medium">{notionTasks.length}개</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Manager Override Mode */}
         <div className="bg-gradient-to-b from-indigo-900/40 to-slate-800 p-4 rounded-xl border border-indigo-500/30">
           <div className="flex items-center gap-2 mb-3">
@@ -3994,6 +4054,8 @@ const OrchestratorApp = () => {
                 workModules={workModules}
                 onAddProject={addProject}
                 onEmployeeClick={setSelectedEmployee}
+                notionProjects={notionProjects}
+                notionTasks={notionTasks}
               />
             )}
             {activeTab === "talent" && (
