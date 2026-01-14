@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { requestTeamComposition, TeamProposal, Employee as GeminiEmployee, Project as GeminiProject, WorkModule as GeminiWorkModule } from '../services/gemini';
-import { archiveProjectToNotion, saveToLocalStorage, ProjectArchiveData } from '../services/notion';
+import {
+  archiveProjectToNotion,
+  saveToLocalStorage,
+  ProjectArchiveData,
+  syncAllFromNotion,
+  NotionProject,
+  NotionTask,
+  NotionSyncStatus
+} from '../services/notion';
 import {
   TeamType,
   TaskCategory,
@@ -63,7 +71,9 @@ import {
   Award,
   Upload,
   CheckCircle2,
-  DollarSign
+  DollarSign,
+  Cloud,
+  RefreshCw
 } from 'lucide-react';
 
 // --- Mock Data ---
@@ -3774,6 +3784,53 @@ const OrchestratorApp = () => {
   // 인사 카드 모달 상태
   const [selectedEmployee, setSelectedEmployee] = useState<ExtendedEmployee | null>(null);
 
+  // ============================================
+  // Notion 동기화 상태 관리
+  // ============================================
+  const [notionSyncStatus, setNotionSyncStatus] = useState<NotionSyncStatus>('idle');
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [notionProjects, setNotionProjects] = useState<NotionProject[]>([]);
+  const [notionTasks, setNotionTasks] = useState<NotionTask[]>([]);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  // Notion 데이터 동기화 함수
+  const syncFromNotion = async () => {
+    setNotionSyncStatus('syncing');
+    setSyncError(null);
+
+    try {
+      const result = await syncAllFromNotion();
+
+      if (result.success) {
+        setNotionProjects(result.projects || []);
+        setNotionTasks(result.tasks || []);
+        setLastSyncTime(new Date());
+        setNotionSyncStatus('success');
+        console.log(`[Notion Sync] 성공 - 프로젝트: ${result.projects?.length || 0}, Task: ${result.tasks?.length || 0}`);
+      } else {
+        setSyncError(result.error || '알 수 없는 오류');
+        setNotionSyncStatus('error');
+        console.error('[Notion Sync] 실패:', result.error);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '동기화 실패';
+      setSyncError(errorMsg);
+      setNotionSyncStatus('error');
+      console.error('[Notion Sync] 예외:', error);
+    }
+  };
+
+  // 초기 동기화 및 자동 동기화 (60초 간격)
+  useEffect(() => {
+    // 초기 동기화
+    syncFromNotion();
+
+    // 60초마다 자동 동기화
+    const interval = setInterval(syncFromNotion, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // 직원 부하율 업데이트 함수
   const updateEmployeeLoads = (memberIds: number[], loadIncrease: number = 15) => {
     setEmployees(prev => prev.map(emp => {
@@ -3880,6 +3937,37 @@ const OrchestratorApp = () => {
             />
           </div>
           <div className="flex items-center gap-4">
+            {/* Notion 동기화 상태 표시 */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50">
+              <Cloud
+                size={16}
+                className={`${
+                  notionSyncStatus === 'syncing' ? 'animate-pulse text-blue-400' :
+                  notionSyncStatus === 'success' ? 'text-emerald-400' :
+                  notionSyncStatus === 'error' ? 'text-red-400' :
+                  'text-slate-500'
+                }`}
+              />
+              <span className="text-xs text-slate-400">
+                {notionSyncStatus === 'syncing' ? '동기화 중...' :
+                 lastSyncTime ? `${lastSyncTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 동기화` :
+                 'Notion 대기'}
+              </span>
+              <button
+                onClick={syncFromNotion}
+                disabled={notionSyncStatus === 'syncing'}
+                className="p-1 hover:bg-slate-700/50 rounded transition-colors disabled:opacity-50"
+                title="수동 동기화"
+              >
+                <RefreshCw size={14} className={`text-slate-400 hover:text-white ${notionSyncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+              </button>
+              {notionProjects.length > 0 && (
+                <span className="text-xs text-indigo-400 font-medium">
+                  {notionProjects.length}개 프로젝트
+                </span>
+              )}
+            </div>
+            <div className="h-4 w-[1px] bg-slate-700"></div>
             <button className="relative p-2 text-slate-400 hover:text-white transition-colors">
               <Bell size={20} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-slate-900"></span>

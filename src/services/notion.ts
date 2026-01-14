@@ -1,9 +1,15 @@
 // Notion API 연동 서비스
 // 프로젝트/Task Output을 Notion 데이터베이스에 아카이빙
+// Notion → Dashboard 동기화 지원
 
 // 환경 변수에서 API 키 로드 (Vite 방식)
 const NOTION_API_KEY = import.meta.env.VITE_NOTION_API_KEY || '';
 const NOTION_DATABASE_ID = import.meta.env.VITE_NOTION_DATABASE_ID || '';
+
+// 신규: 여러 데이터베이스 ID 지원
+const NOTION_DB_PROJECT = import.meta.env.VITE_NOTION_DB_PROJECT || '';
+const NOTION_DB_TASK = import.meta.env.VITE_NOTION_DB_TASK || '';
+const NOTION_DB_SPRINT = import.meta.env.VITE_NOTION_DB_SPRINT || '';
 
 // Notion API 기본 URL (프록시 사용 시 변경)
 const NOTION_API_BASE = '/api/notion'; // Vite 프록시 경로
@@ -270,3 +276,287 @@ export function getFromLocalStorage(): Array<ProjectArchiveData | TaskArchiveDat
     return [];
   }
 }
+
+// ============================================
+// Notion → Dashboard 동기화 (아이디어 2번)
+// ============================================
+
+/**
+ * Notion에서 조회한 프로젝트 데이터 타입
+ */
+export interface NotionProject {
+  id: string;
+  notionId: string;
+  name: string;
+  phase: string;
+  progress: number;
+  status: string;
+  startDate: string;
+  endDate: string;
+  teamType: string;
+  members: number[];
+  category: string;
+  _source: 'notion';
+}
+
+/**
+ * Notion에서 조회한 Task 데이터 타입
+ */
+export interface NotionTask {
+  id: string;
+  notionId: string;
+  name: string;
+  projectId: number;
+  taskType: string;
+  progress: number;
+  assignees: number[];
+  startDate: string;
+  endDate: string;
+  techStack: string[];
+  estimatedHours: number;
+  _source: 'notion';
+}
+
+/**
+ * Notion Property 값 추출 헬퍼 함수들
+ */
+function extractTitle(property: unknown): string {
+  if (!property || typeof property !== 'object') return '';
+  const prop = property as { title?: Array<{ plain_text?: string }> };
+  return prop.title?.[0]?.plain_text || '';
+}
+
+function extractSelect(property: unknown): string {
+  if (!property || typeof property !== 'object') return '';
+  const prop = property as { select?: { name?: string } };
+  return prop.select?.name || '';
+}
+
+function extractNumber(property: unknown): number {
+  if (!property || typeof property !== 'object') return 0;
+  const prop = property as { number?: number };
+  return prop.number || 0;
+}
+
+function extractDate(property: unknown): string {
+  if (!property || typeof property !== 'object') return '';
+  const prop = property as { date?: { start?: string } };
+  return prop.date?.start || '';
+}
+
+function extractMultiSelect(property: unknown): string[] {
+  if (!property || typeof property !== 'object') return [];
+  const prop = property as { multi_select?: Array<{ name?: string }> };
+  return prop.multi_select?.map(item => item.name || '') || [];
+}
+
+function extractRichText(property: unknown): string {
+  if (!property || typeof property !== 'object') return '';
+  const prop = property as { rich_text?: Array<{ plain_text?: string }> };
+  return prop.rich_text?.[0]?.plain_text || '';
+}
+
+/**
+ * Notion 페이지를 Dashboard 프로젝트 형식으로 변환
+ */
+export function transformNotionToProject(notionPage: NotionPage): NotionProject | null {
+  try {
+    const props = notionPage.properties as Record<string, unknown>;
+
+    // 기본 구조로 매핑 (Notion DB 스키마에 따라 조정 필요)
+    const name = extractTitle(props['이름'] || props['Name'] || props['제목']);
+    if (!name) return null;
+
+    const phase = extractSelect(props['상태'] || props['Status'] || props['Phase']) || 'Planning';
+    const progress = extractNumber(props['진행률'] || props['Progress'] || props['진행도']) || 0;
+    const status = phase === 'Complete' ? 'Complete' : (progress > 50 ? 'OnTrack' : 'AtRisk');
+
+    return {
+      id: notionPage.id.replace(/-/g, '').substring(0, 8), // 짧은 ID 생성
+      notionId: notionPage.id,
+      name,
+      phase,
+      progress,
+      status,
+      startDate: extractDate(props['시작일'] || props['Start Date'] || props['시작']) || '2025-01-01',
+      endDate: extractDate(props['종료일'] || props['End Date'] || props['마감']) || '2025-12-31',
+      teamType: extractSelect(props['팀'] || props['Team'] || props['담당팀']) || 'COLLABORATION',
+      members: [], // Relation은 별도 처리 필요
+      category: extractSelect(props['카테고리'] || props['Category'] || props['분류']) || 'General',
+      _source: 'notion',
+    };
+  } catch (error) {
+    console.error('프로젝트 변환 실패:', error, notionPage);
+    return null;
+  }
+}
+
+/**
+ * Notion 페이지를 Dashboard Task 형식으로 변환
+ */
+export function transformNotionToTask(notionPage: NotionPage): NotionTask | null {
+  try {
+    const props = notionPage.properties as Record<string, unknown>;
+
+    const name = extractTitle(props['이름'] || props['Name'] || props['태스크명'] || props['제목']);
+    if (!name) return null;
+
+    return {
+      id: `notion-${notionPage.id.replace(/-/g, '').substring(0, 8)}`,
+      notionId: notionPage.id,
+      name,
+      projectId: 0, // Relation에서 추출 필요
+      taskType: extractSelect(props['유형'] || props['Type'] || props['Task Type']) || 'GENERAL',
+      progress: extractNumber(props['진행률'] || props['Progress'] || props['진행도']) || 0,
+      assignees: [], // Relation에서 추출 필요
+      startDate: extractDate(props['시작일'] || props['Start Date']) || '2025-01-01',
+      endDate: extractDate(props['종료일'] || props['End Date'] || props['마감일']) || '2025-12-31',
+      techStack: extractMultiSelect(props['기술스택'] || props['Tech Stack'] || props['스킬']),
+      estimatedHours: extractNumber(props['예상시간'] || props['Estimated Hours']) || 40,
+      _source: 'notion',
+    };
+  } catch (error) {
+    console.error('Task 변환 실패:', error, notionPage);
+    return null;
+  }
+}
+
+/**
+ * Notion에서 프로젝트 목록 조회
+ */
+export async function fetchProjectsFromNotion(): Promise<{
+  success: boolean;
+  projects?: NotionProject[];
+  error?: string;
+}> {
+  const databaseId = NOTION_DB_PROJECT || NOTION_DATABASE_ID;
+
+  if (!databaseId) {
+    return {
+      success: false,
+      error: 'NOTION_DB_PROJECT가 설정되지 않았습니다.',
+    };
+  }
+
+  try {
+    const response = await notionFetch(`/databases/${databaseId}/query`, {
+      method: 'POST',
+      body: JSON.stringify({
+        page_size: 100,
+        sorts: [
+          { property: '시작일', direction: 'descending' },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const projects = (data.results || [])
+      .map((page: NotionPage) => transformNotionToProject(page))
+      .filter((p: NotionProject | null): p is NotionProject => p !== null);
+
+    console.log(`[Notion] ${projects.length}개 프로젝트 조회 완료`);
+    return { success: true, projects };
+  } catch (error) {
+    console.error('Notion 프로젝트 조회 실패:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류',
+    };
+  }
+}
+
+/**
+ * Notion에서 Task 목록 조회
+ */
+export async function fetchTasksFromNotion(): Promise<{
+  success: boolean;
+  tasks?: NotionTask[];
+  error?: string;
+}> {
+  const databaseId = NOTION_DB_TASK;
+
+  if (!databaseId) {
+    return {
+      success: false,
+      error: 'NOTION_DB_TASK가 설정되지 않았습니다.',
+    };
+  }
+
+  try {
+    const response = await notionFetch(`/databases/${databaseId}/query`, {
+      method: 'POST',
+      body: JSON.stringify({
+        page_size: 100,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const tasks = (data.results || [])
+      .map((page: NotionPage) => transformNotionToTask(page))
+      .filter((t: NotionTask | null): t is NotionTask => t !== null);
+
+    console.log(`[Notion] ${tasks.length}개 Task 조회 완료`);
+    return { success: true, tasks };
+  } catch (error) {
+    console.error('Notion Task 조회 실패:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류',
+    };
+  }
+}
+
+/**
+ * Notion 동기화 상태 타입
+ */
+export type NotionSyncStatus = 'idle' | 'syncing' | 'success' | 'error';
+
+/**
+ * 전체 Notion 데이터 동기화
+ */
+export async function syncAllFromNotion(): Promise<{
+  success: boolean;
+  projects?: NotionProject[];
+  tasks?: NotionTask[];
+  error?: string;
+}> {
+  console.log('[Notion] 전체 동기화 시작...');
+
+  const [projectsResult, tasksResult] = await Promise.all([
+    fetchProjectsFromNotion(),
+    fetchTasksFromNotion(),
+  ]);
+
+  if (!projectsResult.success && !tasksResult.success) {
+    return {
+      success: false,
+      error: `프로젝트: ${projectsResult.error}, Task: ${tasksResult.error}`,
+    };
+  }
+
+  console.log('[Notion] 전체 동기화 완료');
+  return {
+    success: true,
+    projects: projectsResult.projects || [],
+    tasks: tasksResult.tasks || [],
+  };
+}
+
+/**
+ * DB ID 내보내기 (외부에서 접근 가능)
+ */
+export const NotionDBIds = {
+  PROJECT: NOTION_DB_PROJECT,
+  TASK: NOTION_DB_TASK,
+  SPRINT: NOTION_DB_SPRINT,
+};
